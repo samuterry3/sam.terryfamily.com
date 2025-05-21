@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platformer Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+            font-family: 'Arial', sans-serif;
+        }
+        canvas {
+            border: 2px solid #333;
+            background: #87CEEB;
+        }
+        #gameContainer {
+            position: relative;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        #restartButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div id="score">Score: 0</div>
+        <button id="restartButton">Play Again</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const restartButton = document.getElementById('restartButton');
+
+        const player = {
+            x: 50,
+            y: 200,
+            width: 30,
+            height: 30,
+            speed: 5,
+            jumpForce: 12,
+            velocityY: 0,
+            isJumping: false
+        };
+
+        const gravity = 0.6;
+        let score = 0;
+        let gameOver = false;
+        let currentLevel = 1;
+        let levelCompleted = false;
+
+        // Level definitions
+        const levels = [
+            {
+                platforms: [
+                    { x: 0, y: 350, width: 800, height: 50 },
+                    { x: 300, y: 250, width: 200, height: 20 },
+                    { x: 100, y: 150, width: 200, height: 20 },
+                    { x: 500, y: 200, width: 200, height: 20 }
+                ],
+                coins: [
+                    { x: 350, y: 220, width: 20, height: 20, collected: false },
+                    { x: 150, y: 120, width: 20, height: 20, collected: false },
+                    { x: 550, y: 170, width: 20, height: 20, collected: false }
+                ]
+            },
+            {
+                platforms: [
+                    { x: 0, y: 350, width: 800, height: 50 },
+                    { x: 200, y: 280, width: 150, height: 20 },
+                    { x: 400, y: 220, width: 150, height: 20 },
+                    { x: 600, y: 160, width: 150, height: 20 }
+                ],
+                coins: [
+                    { x: 250, y: 250, width: 20, height: 20, collected: false },
+                    { x: 450, y: 190, width: 20, height: 20, collected: false },
+                    { x: 650, y: 130, width: 20, height: 20, collected: false }
+                ]
+            }
+        ];
+
+        let platforms = levels[currentLevel - 1].platforms;
+        let coins = levels[currentLevel - 1].coins;
+
+        function drawPlayer() {
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+        }
+
+        function drawPlatforms() {
+            ctx.fillStyle = '#4CAF50';
+            platforms.forEach(platform => {
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+            });
+        }
+
+        function drawCoins() {
+            ctx.fillStyle = '#FFD700';
+            coins.forEach(coin => {
+                if (!coin.collected) {
+                    ctx.beginPath();
+                    ctx.arc(coin.x + coin.width/2, coin.y + coin.height/2, coin.width/2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        }
+
+        function drawLevelInfo() {
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Level: ${currentLevel}`, canvas.width - 100, 30);
+        }
+
+        function checkCollision(rect1, rect2) {
+            // Make collision detection more forgiving by adding a small buffer
+            const buffer = 5;
+            return rect1.x - buffer < rect2.x + rect2.width &&
+                   rect1.x + rect1.width + buffer > rect2.x &&
+                   rect1.y - buffer < rect2.y + rect2.height &&
+                   rect1.y + rect1.height + buffer > rect2.y;
+        }
+
+        function loadLevel(levelNumber) {
+            currentLevel = levelNumber;
+            platforms = levels[levelNumber - 1].platforms;
+            coins = levels[levelNumber - 1].coins;
+            player.x = 50;
+            player.y = 200;
+            player.velocityY = 0;
+            levelCompleted = false;
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            // Apply gravity
+            player.velocityY += gravity;
+            player.y += player.velocityY;
+
+            // Check platform collisions
+            let onPlatform = false;
+            platforms.forEach(platform => {
+                if (checkCollision(player, platform)) {
+                    if (player.velocityY > 0 && player.y + player.height - player.velocityY <= platform.y) {
+                        player.y = platform.y - player.height;
+                        player.velocityY = 0;
+                        player.isJumping = false;
+                        onPlatform = true;
+                    }
+                }
+            });
+
+            // Check coin collisions
+            coins.forEach(coin => {
+                if (!coin.collected && checkCollision(player, coin)) {
+                    coin.collected = true;
+                    score += 10;
+                    scoreElement.textContent = `Score: ${score}`;
+                }
+            });
+
+            // Check if all coins are collected
+            if (coins.every(coin => coin.collected) && !levelCompleted) {
+                levelCompleted = true;
+                if (currentLevel < levels.length) {
+                    setTimeout(() => {
+                        loadLevel(currentLevel + 1);
+                    }, 1000);
+                } else {
+                    gameOver = true;
+                    restartButton.style.display = 'block';
+                }
+            }
+
+            // Keep player in bounds
+            if (player.y > canvas.height) {
+                gameOver = true;
+                restartButton.style.display = 'block';
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlatforms();
+            drawCoins();
+            drawPlayer();
+            drawLevelInfo();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Controls
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === 'ArrowUp' && !player.isJumping) {
+                player.velocityY = -player.jumpForce;
+                player.isJumping = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function handleInput() {
+            if (keys['ArrowLeft']) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight']) {
+                player.x += player.speed;
+            }
+        }
+
+        // Restart game
+        restartButton.addEventListener('click', () => {
+            loadLevel(1);
+            score = 0;
+            scoreElement.textContent = `Score: ${score}`;
+            gameOver = false;
+            restartButton.style.display = 'none';
+        });
+
+        // Main game loop
+        setInterval(handleInput, 1000/60);
+        gameLoop();
+    </script>
+</body>
+</html>

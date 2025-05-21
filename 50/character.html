@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Creator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+        }
+        .preview {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .controls {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            overflow-y: auto;
+            max-height: 800px;
+        }
+        canvas {
+            background: white;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .control-group {
+            margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ccc;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .stat-bar {
+            background: rgba(255, 255, 255, 0.1);
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .stat-fill {
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s;
+        }
+        .character-name {
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .tab.active {
+            background: #4CAF50;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="preview">
+            <h2>Character Preview</h2>
+            <div class="character-name">
+                <input type="text" id="characterName" placeholder="Enter character name" style="width: 80%; text-align: center;">
+            </div>
+            <canvas id="characterCanvas" width="400" height="400"></canvas>
+            <div>
+                <button id="saveButton">Save Character</button>
+                <button id="randomButton">Randomize</button>
+            </div>
+            <div class="stats">
+                <div>
+                    <label>Strength</label>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="strengthBar" style="width: 70%"></div>
+                    </div>
+                </div>
+                <div>
+                    <label>Agility</label>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="agilityBar" style="width: 60%"></div>
+                    </div>
+                </div>
+                <div>
+                    <label>Intelligence</label>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="intelligenceBar" style="width: 80%"></div>
+                    </div>
+                </div>
+                <div>
+                    <label>Charisma</label>
+                    <div class="stat-bar">
+                        <div class="stat-fill" id="charismaBar" style="width: 65%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="controls">
+            <h2>Customize Your Character</h2>
+            <div class="tabs">
+                <div class="tab active" data-tab="appearance">Appearance</div>
+                <div class="tab" data-tab="personality">Personality</div>
+                <div class="tab" data-tab="background">Background</div>
+            </div>
+            
+            <div class="tab-content active" id="appearance">
+                <div class="control-group">
+                    <label>Body Type</label>
+                    <select id="bodyType">
+                        <option value="slim">Slim</option>
+                        <option value="average">Average</option>
+                        <option value="muscular">Muscular</option>
+                        <option value="curvy">Curvy</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Hair Style</label>
+                    <select id="hairStyle">
+                        <option value="short">Short</option>
+                        <option value="medium">Medium</option>
+                        <option value="long">Long</option>
+                        <option value="bald">Bald</option>
+                        <option value="mohawk">Mohawk</option>
+                        <option value="afro">Afro</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Hair Color</label>
+                    <input type="color" id="hairColor" value="#000000">
+                </div>
+
+                <div class="control-group">
+                    <label>Skin Tone</label>
+                    <input type="color" id="skinColor" value="#FFD3B6">
+                </div>
+
+                <div class="control-group">
+                    <label>Eye Color</label>
+                    <input type="color" id="eyeColor" value="#0000FF">
+                </div>
+
+                <div class="control-group">
+                    <label>Eye Shape</label>
+                    <select id="eyeShape">
+                        <option value="normal">Normal</option>
+                        <option value="narrow">Narrow</option>
+                        <option value="wide">Wide</option>
+                        <option value="slanted">Slanted</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Clothing Style</label>
+                    <select id="clothingStyle">
+                        <option value="casual">Casual</option>
+                        <option value="formal">Formal</option>
+                        <option value="sporty">Sporty</option>
+                        <option value="fantasy">Fantasy</option>
+                        <option value="cyberpunk">Cyberpunk</option>
+                        <option value="steampunk">Steampunk</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Clothing Color</label>
+                    <input type="color" id="clothingColor" value="#FF0000">
+                </div>
+
+                <div class="control-group">
+                    <label>Accessories</label>
+                    <select id="accessories">
+                        <option value="none">None</option>
+                        <option value="glasses">Glasses</option>
+                        <option value="hat">Hat</option>
+                        <option value="scarf">Scarf</option>
+                        <option value="mask">Mask</option>
+                        <option value="cape">Cape</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="tab-content" id="personality">
+                <div class="control-group">
+                    <label>Personality Type</label>
+                    <select id="personalityType">
+                        <option value="friendly">Friendly</option>
+                        <option value="serious">Serious</option>
+                        <option value="mysterious">Mysterious</option>
+                        <option value="energetic">Energetic</option>
+                        <option value="calm">Calm</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Background Story</label>
+                    <textarea id="backgroundStory" rows="4" placeholder="Write your character's background story..."></textarea>
+                </div>
+            </div>
+
+            <div class="tab-content" id="background">
+                <div class="control-group">
+                    <label>Origin</label>
+                    <select id="origin">
+                        <option value="city">City</option>
+                        <option value="village">Village</option>
+                        <option value="forest">Forest</option>
+                        <option value="mountain">Mountain</option>
+                        <option value="desert">Desert</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Occupation</label>
+                    <select id="occupation">
+                        <option value="warrior">Warrior</option>
+                        <option value="mage">Mage</option>
+                        <option value="rogue">Rogue</option>
+                        <option value="merchant">Merchant</option>
+                        <option value="scholar">Scholar</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('characterCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Character state
+        let character = {
+            name: '',
+            bodyType: 'average',
+            hairStyle: 'medium',
+            hairColor: '#000000',
+            skinColor: '#FFD3B6',
+            eyeColor: '#0000FF',
+            eyeShape: 'normal',
+            clothingStyle: 'casual',
+            clothingColor: '#FF0000',
+            accessories: 'none',
+            personalityType: 'friendly',
+            backgroundStory: '',
+            origin: 'city',
+            occupation: 'warrior',
+            stats: {
+                strength: 70,
+                agility: 60,
+                intelligence: 80,
+                charisma: 65
+            }
+        };
+
+        // Get all control elements
+        const controls = {
+            bodyType: document.getElementById('bodyType'),
+            hairStyle: document.getElementById('hairStyle'),
+            hairColor: document.getElementById('hairColor'),
+            skinColor: document.getElementById('skinColor'),
+            eyeColor: document.getElementById('eyeColor'),
+            eyeShape: document.getElementById('eyeShape'),
+            clothingStyle: document.getElementById('clothingStyle'),
+            clothingColor: document.getElementById('clothingColor'),
+            accessories: document.getElementById('accessories'),
+            personalityType: document.getElementById('personalityType'),
+            backgroundStory: document.getElementById('backgroundStory'),
+            origin: document.getElementById('origin'),
+            occupation: document.getElementById('occupation')
+        };
+
+        // Tab functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Add event listeners to all controls
+        Object.keys(controls).forEach(key => {
+            controls[key].addEventListener('change', () => {
+                character[key] = controls[key].value;
+                drawCharacter();
+            });
+        });
+
+        // Character name input
+        document.getElementById('characterName').addEventListener('input', (e) => {
+            character.name = e.target.value;
+        });
+
+        // Randomize button
+        document.getElementById('randomButton').addEventListener('click', () => {
+            const randomColor = () => '#' + Math.floor(Math.random()*16777215).toString(16);
+            const randomStat = () => Math.floor(Math.random() * 40) + 40; // Random stat between 40-80
+            
+            character = {
+                name: `Character ${Math.floor(Math.random() * 1000)}`,
+                bodyType: ['slim', 'average', 'muscular', 'curvy'][Math.floor(Math.random() * 4)],
+                hairStyle: ['short', 'medium', 'long', 'bald', 'mohawk', 'afro'][Math.floor(Math.random() * 6)],
+                hairColor: randomColor(),
+                skinColor: randomColor(),
+                eyeColor: randomColor(),
+                eyeShape: ['normal', 'narrow', 'wide', 'slanted'][Math.floor(Math.random() * 4)],
+                clothingStyle: ['casual', 'formal', 'sporty', 'fantasy', 'cyberpunk', 'steampunk'][Math.floor(Math.random() * 6)],
+                clothingColor: randomColor(),
+                accessories: ['none', 'glasses', 'hat', 'scarf', 'mask', 'cape'][Math.floor(Math.random() * 6)],
+                personalityType: ['friendly', 'serious', 'mysterious', 'energetic', 'calm'][Math.floor(Math.random() * 5)],
+                origin: ['city', 'village', 'forest', 'mountain', 'desert'][Math.floor(Math.random() * 5)],
+                occupation: ['warrior', 'mage', 'rogue', 'merchant', 'scholar'][Math.floor(Math.random() * 5)],
+                stats: {
+                    strength: randomStat(),
+                    agility: randomStat(),
+                    intelligence: randomStat(),
+                    charisma: randomStat()
+                }
+            };
+
+            // Update controls to match random character
+            Object.keys(controls).forEach(key => {
+                controls[key].value = character[key];
+            });
+            document.getElementById('characterName').value = character.name;
+
+            // Update stat bars
+            updateStatBars();
+            drawCharacter();
+        });
+
+        function updateStatBars() {
+            Object.keys(character.stats).forEach(stat => {
+                document.getElementById(`${stat}Bar`).style.width = `${character.stats[stat]}%`;
+            });
+        }
+
+        // Save button
+        document.getElementById('saveButton').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = `${character.name || 'character'}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        function drawCharacter() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw body based on body type
+            ctx.fillStyle = character.skinColor;
+            switch(character.bodyType) {
+                case 'slim':
+                    ctx.fillRect(150, 100, 100, 200);
+                    break;
+                case 'average':
+                    ctx.fillRect(140, 100, 120, 200);
+                    break;
+                case 'muscular':
+                    ctx.fillRect(130, 100, 140, 200);
+                    break;
+                case 'curvy':
+                    ctx.fillRect(140, 100, 120, 200);
+                    ctx.beginPath();
+                    ctx.ellipse(200, 200, 60, 40, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+            }
+
+            // Draw head
+            ctx.beginPath();
+            ctx.arc(200, 80, 40, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw hair
+            if (character.hairStyle !== 'bald') {
+                ctx.fillStyle = character.hairColor;
+                switch(character.hairStyle) {
+                    case 'short':
+                        ctx.fillRect(160, 40, 80, 20);
+                        break;
+                    case 'medium':
+                        ctx.fillRect(160, 40, 80, 30);
+                        break;
+                    case 'long':
+                        ctx.fillRect(160, 40, 80, 60);
+                        break;
+                    case 'mohawk':
+                        ctx.fillRect(190, 20, 20, 60);
+                        break;
+                    case 'afro':
+                        ctx.beginPath();
+                        ctx.arc(200, 60, 30, 0, Math.PI * 2);
+                        ctx.fill();
+                        break;
+                }
+            }
+
+            // Draw eyes
+            ctx.fillStyle = character.eyeColor;
+            switch(character.eyeShape) {
+                case 'normal':
+                    ctx.beginPath();
+                    ctx.arc(180, 75, 5, 0, Math.PI * 2);
+                    ctx.arc(220, 75, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+                case 'narrow':
+                    ctx.fillRect(175, 72, 10, 6);
+                    ctx.fillRect(215, 72, 10, 6);
+                    break;
+                case 'wide':
+                    ctx.beginPath();
+                    ctx.arc(180, 75, 8, 0, Math.PI * 2);
+                    ctx.arc(220, 75, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    break;
+                case 'slanted':
+                    ctx.beginPath();
+                    ctx.moveTo(175, 72);
+                    ctx.lineTo(185, 78);
+                    ctx.lineTo(175, 78);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(215, 72);
+                    ctx.lineTo(225, 78);
+                    ctx.lineTo(215, 78);
+                    ctx.fill();
+                    break;
+            }
+
+            // Draw clothing
+            ctx.fillStyle = character.clothingColor;
+            switch(character.clothingStyle) {
+                case 'casual':
+                    ctx.fillRect(140, 200, 120, 100);
+                    break;
+                case 'formal':
+                    ctx.fillRect(140, 200, 120, 100);
+                    ctx.fillRect(140, 180, 120, 20);
+                    break;
+                case 'sporty':
+                    ctx.fillRect(140, 200, 120, 80);
+                    ctx.fillRect(140, 280, 120, 20);
+                    break;
+                case 'fantasy':
+                    ctx.fillRect(140, 200, 120, 100);
+                    ctx.beginPath();
+                    ctx.arc(200, 200, 60, 0, Math.PI);
+                    ctx.fill();
+                    break;
+                case 'cyberpunk':
+                    ctx.fillRect(140, 200, 120, 100);
+                    ctx.fillStyle = '#00ff00';
+                    ctx.fillRect(140, 200, 20, 100);
+                    ctx.fillRect(240, 200, 20, 100);
+                    break;
+                case 'steampunk':
+                    ctx.fillRect(140, 200, 120, 100);
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(140, 180, 120, 20);
+                    break;
+            }
+
+            // Draw accessories
+            switch(character.accessories) {
+                case 'glasses':
+                    ctx.strokeStyle = 'black';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.rect(170, 70, 20, 10);
+                    ctx.rect(210, 70, 20, 10);
+                    ctx.moveTo(190, 75);
+                    ctx.lineTo(210, 75);
+                    ctx.stroke();
+                    break;
+                case 'hat':
+                    ctx.fillStyle = 'black';
+                    ctx.beginPath();
+                    ctx.arc(200, 40, 30, Math.PI, 0);
+                    ctx.fill();
+                    break;
+                case 'scarf':
+                    ctx.fillStyle = 'red';
+                    ctx.fillRect(140, 180, 120, 20);
+                    break;
+                case 'mask':
+                    ctx.fillStyle = '#333';
+                    ctx.fillRect(170, 70, 60, 20);
+                    break;
+                case 'cape':
+                    ctx.fillStyle = '#800000';
+                    ctx.beginPath();
+                    ctx.moveTo(140, 200);
+                    ctx.lineTo(100, 300);
+                    ctx.lineTo(140, 300);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(260, 200);
+                    ctx.lineTo(300, 300);
+                    ctx.lineTo(260, 300);
+                    ctx.fill();
+                    break;
+            }
+        }
+
+        // Initial draw
+        drawCharacter();
+        updateStatBars();
+    </script>
+</body>
+</html> 

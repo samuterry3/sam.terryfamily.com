@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Maze</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 2px solid #333;
+            background-color: #fff;
+        }
+        #controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            margin: 0 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <canvas id="mazeCanvas"></canvas>
+        <div id="controls">
+            <button id="generateButton">New Maze</button>
+            <button id="solveButton">Solve with AI</button>
+            <p>Use Arrow Keys to Move</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mazeCanvas');
+        const ctx = canvas.getContext('2d');
+        const generateButton = document.getElementById('generateButton');
+        const solveButton = document.getElementById('solveButton');
+
+        let mazeWidth = 20; // Number of cells wide
+        let mazeHeight = 15; // Number of cells high
+        let cellSize = 30; // Size of each cell in pixels
+        let playerSize = cellSize / 2;
+
+        canvas.width = mazeWidth * cellSize;
+        canvas.height = mazeHeight * cellSize;
+
+        let maze;
+        let player = { x: 0, y: 0 }; // Player position in terms of cell coordinates
+        let aiPath = [];
+        let isAISolving = false;
+
+        function createGrid(cols, rows) {
+            const grid = [];
+            for (let y = 0; y < rows; y++) {
+                grid[y] = [];
+                for (let x = 0; x < cols; x++) {
+                    grid[y][x] = {
+                        x,
+                        y,
+                        walls: { top: true, right: true, bottom: true, left: true },
+                        visited: false
+                    };
+                }
+            }
+            return grid;
+        }
+
+        function generateMaze(cols, rows) {
+            maze = createGrid(cols, rows);
+            const stack = [];
+            let current = maze[0][0];
+            current.visited = true;
+            let visitedCells = 1;
+
+            // Reset visited status for pathfinding algorithms for each cell
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    maze[y][x].visitedPath = false; 
+                    maze[y][x].parent = null;
+                }
+            }
+            current.visitedPath = true; // Mark as visited for pathfinding
+
+            while (visitedCells < cols * rows) {
+                const neighbors = getUnvisitedNeighbors(current);
+
+                if (neighbors.length > 0) {
+                    stack.push(current);
+                    const randomNeighbor = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    removeWall(current, randomNeighbor);
+                    current = randomNeighbor;
+                    current.visited = true;
+                    current.visitedPath = true; // Mark as visited for pathfinding
+                    visitedCells++;
+                } else if (stack.length > 0) {
+                    current = stack.pop();
+                } else {
+                    // Should not happen in a connected maze, but as a fallback:
+                    const unvisited = maze.flat().filter(cell => !cell.visited);
+                    if (unvisited.length > 0) {
+                        current = unvisited[Math.floor(Math.random() * unvisited.length)];
+                        current.visited = true;
+                         visitedCells++;
+                    } else {
+                        break; // All cells visited
+                    }
+                }
+            }
+            // Set start and end points
+            player.x = 0;
+            player.y = 0;
+            maze[rows-1][cols-1].isExit = true; // Mark bottom-right as exit
+            aiPath = []; // Clear previous AI path
+            isAISolving = false;
+        }
+
+        function getUnvisitedNeighbors(cell) {
+            const neighbors = [];
+            const { x, y } = cell;
+
+            // Top
+            if (y > 0 && !maze[y - 1][x].visited) neighbors.push(maze[y - 1][x]);
+            // Right
+            if (x < mazeWidth - 1 && !maze[y][x + 1].visited) neighbors.push(maze[y][x + 1]);
+            // Bottom
+            if (y < mazeHeight - 1 && !maze[y + 1][x].visited) neighbors.push(maze[y + 1][x]);
+            // Left
+            if (x > 0 && !maze[y][x - 1].visited) neighbors.push(maze[y][x - 1]);
+
+            return neighbors;
+        }
+
+        function getValidPathNeighbors(cell) {
+            const neighbors = [];
+            const { x, y } = cell;
+            const currentCell = maze[y][x];
+
+            // Top
+            if (y > 0 && !maze[y - 1][x].visitedPath && !currentCell.walls.top) {
+                neighbors.push(maze[y - 1][x]);
+            }
+            // Right
+            if (x < mazeWidth - 1 && !maze[y][x + 1].visitedPath && !currentCell.walls.right) {
+                neighbors.push(maze[y][x + 1]);
+            }
+            // Bottom
+            if (y < mazeHeight - 1 && !maze[y + 1][x].visitedPath && !currentCell.walls.bottom) {
+                neighbors.push(maze[y + 1][x]);
+            }
+            // Left
+            if (x > 0 && !maze[y][x - 1].visitedPath && !currentCell.walls.left) {
+                neighbors.push(maze[y][x - 1]);
+            }
+            return neighbors;
+        }
+
+        function removeWall(a, b) {
+            const dx = a.x - b.x;
+            if (dx === 1) { // b is to the left of a
+                a.walls.left = false;
+                b.walls.right = false;
+            } else if (dx === -1) { // b is to the right of a
+                a.walls.right = false;
+                b.walls.left = false;
+            }
+            const dy = a.y - b.y;
+            if (dy === 1) { // b is above a
+                a.walls.top = false;
+                b.walls.bottom = false;
+            } else if (dy === -1) { // b is below a
+                a.walls.bottom = false;
+                b.walls.top = false;
+            }
+        }
+
+        function drawMaze() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+
+            for (let y = 0; y < mazeHeight; y++) {
+                for (let x = 0; x < mazeWidth; x++) {
+                    const cell = maze[y][x];
+                    const cellX = x * cellSize;
+                    const cellY = y * cellSize;
+
+                    if (cell.walls.top) {
+                        ctx.beginPath();
+                        ctx.moveTo(cellX, cellY);
+                        ctx.lineTo(cellX + cellSize, cellY);
+                        ctx.stroke();
+                    }
+                    if (cell.walls.right) {
+                        ctx.beginPath();
+                        ctx.moveTo(cellX + cellSize, cellY);
+                        ctx.lineTo(cellX + cellSize, cellY + cellSize);
+                        ctx.stroke();
+                    }
+                    if (cell.walls.bottom) {
+                        ctx.beginPath();
+                        ctx.moveTo(cellX + cellSize, cellY + cellSize);
+                        ctx.lineTo(cellX, cellY + cellSize);
+                        ctx.stroke();
+                    }
+                    if (cell.walls.left) {
+                        ctx.beginPath();
+                        ctx.moveTo(cellX, cellY + cellSize);
+                        ctx.lineTo(cellX, cellY);
+                        ctx.stroke();
+                    }
+
+                    if (cell.isExit) {
+                        ctx.fillStyle = 'lightgreen';
+                        ctx.fillRect(cellX + cellSize * 0.1, cellY + cellSize * 0.1, cellSize * 0.8, cellSize * 0.8);
+                    }
+
+                    // Draw AI path
+                    if (aiPath.includes(cell)) {
+                        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)'; // Light red for path
+                        ctx.fillRect(cellX + cellSize * 0.25, cellY + cellSize * 0.25, cellSize * 0.5, cellSize * 0.5);
+                    }
+                }
+            }
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(
+                player.x * cellSize + (cellSize - playerSize) / 2,
+                player.y * cellSize + (cellSize - playerSize) / 2,
+                playerSize,
+                playerSize
+            );
+        }
+
+        function checkWin() {
+            if (maze[player.y][player.x].isExit) {
+                alert("You reached the exit!");
+                isAISolving = false;
+                generateMaze(mazeWidth, mazeHeight); // Generate a new maze
+                drawAll();
+            }
+        }
+        
+        function movePlayer(dx, dy) {
+            if (isAISolving) return; // Disable player movement if AI is solving
+
+            const currentCell = maze[player.y][player.x];
+            let newX = player.x + dx;
+            let newY = player.y + dy;
+
+            // Boundary checks
+            if (newX < 0 || newX >= mazeWidth || newY < 0 || newY >= mazeHeight) {
+                return;
+            }
+
+            // Wall checks
+            if (dx === 1 && !currentCell.walls.right && !maze[player.y][newX].walls.left) { // Moving right
+                player.x = newX;
+            } else if (dx === -1 && !currentCell.walls.left && !maze[player.y][newX].walls.right) { // Moving left
+                player.x = newX;
+            } else if (dy === 1 && !currentCell.walls.bottom && !maze[newY][player.x].walls.top) { // Moving down
+                player.y = newY;
+            } else if (dy === -1 && !currentCell.walls.top && !maze[newY][player.x].walls.bottom) { // Moving up
+                player.y = newY;
+            }
+            
+            drawAll();
+            checkWin();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (isAISolving) return; // Disable player movement if AI is solving
+            switch (e.key) {
+                case 'ArrowUp':
+                    movePlayer(0, -1);
+                    break;
+                case 'ArrowDown':
+                    movePlayer(0, 1);
+                    break;
+                case 'ArrowLeft':
+                    movePlayer(-1, 0);
+                    break;
+                case 'ArrowRight':
+                    movePlayer(1, 0);
+                    break;
+            }
+        });
+        
+        generateButton.addEventListener('click', () => {
+            isAISolving = false;
+            generateMaze(mazeWidth, mazeHeight);
+            drawAll();
+        });
+
+        solveButton.addEventListener('click', () => {
+            if (isAISolving) return;
+            isAISolving = true;
+            solveMazeAI();
+        });
+
+        function solveMazeAI() {
+            // Reset visitedPath and parent for all cells before solving
+            for (let y = 0; y < mazeHeight; y++) {
+                for (let x = 0; x < mazeWidth; x++) {
+                    maze[y][x].visitedPath = false;
+                    maze[y][x].parent = null;
+                }
+            }
+
+            const startNode = maze[player.y][player.x];
+            const endNode = maze[mazeHeight - 1][mazeWidth - 1];
+            const queue = [startNode];
+            startNode.visitedPath = true;
+            aiPath = [];
+
+            let pathFound = false;
+            while (queue.length > 0) {
+                const current = queue.shift();
+
+                if (current === endNode) {
+                    pathFound = true;
+                    break;
+                }
+
+                const neighbors = getValidPathNeighbors(current);
+                for (const neighbor of neighbors) {
+                    if (!neighbor.visitedPath) {
+                        neighbor.visitedPath = true;
+                        neighbor.parent = current;
+                        queue.push(neighbor);
+                    }
+                }
+            }
+            
+            if (pathFound) {
+                let temp = endNode;
+                while (temp !== null) {
+                    aiPath.unshift(temp);
+                    temp = temp.parent;
+                }
+                animateAIPath();
+            } else {
+                alert("AI could not find a path!");
+                isAISolving = false;
+            }
+        }
+
+        function animateAIPath() {
+            if (aiPath.length === 0) {
+                isAISolving = false;
+                // Optionally, move player to the end or show a message
+                if (maze[player.y][player.x].isExit) {
+                     checkWin(); // If AI lands on exit
+                }
+                return;
+            }
+
+            const nextCell = aiPath.shift(); // Get and remove the first cell in the path
+            player.x = nextCell.x;
+            player.y = nextCell.y;
+            
+            drawAll(); // Redraw maze and player
+
+            if (maze[player.y][player.x].isExit) {
+                 isAISolving = false;
+                 setTimeout(checkWin, 100); // Call checkWin after a short delay to allow final draw
+                 return;
+            }
+
+            setTimeout(animateAIPath, 100); // Adjust speed of animation (milliseconds)
+        }
+
+        function drawAll() {
+            drawMaze();
+            drawPlayer();
+        }
+
+        // Initial setup
+        generateMaze(mazeWidth, mazeHeight);
+        drawAll();
+    </script>
+</body>
+</html> 
