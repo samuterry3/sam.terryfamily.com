@@ -21,6 +21,7 @@
         .container {
             text-align: center;
             padding: 2rem;
+            max-width: 800px;
         }
 
         h1 {
@@ -30,10 +31,29 @@
             text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+
         .game-button {
             display: inline-block;
             padding: 1rem 2rem;
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             color: white;
             background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
             border: none;
@@ -42,6 +62,7 @@
             text-decoration: none;
             transition: transform 0.2s, box-shadow 0.2s;
             box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+            margin-top: 1rem;
         }
 
         .game-button:hover {
@@ -53,24 +74,65 @@
             transform: translateY(1px);
         }
 
-        .description {
-            margin-top: 2rem;
-            font-size: 1.2rem;
+        .game-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: #ffffff;
+        }
+
+        .game-description {
+            font-size: 1rem;
             color: #cccccc;
-            max-width: 600px;
             line-height: 1.6;
+            margin-bottom: 1rem;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Welcome to My Website</h1>
-        <a href="./a.html" class="game-button" target="_self">Play My Platformer Game!</a>
-        <p class="description">
-            Jump into an exciting adventure with my platformer game! Collect coins, 
-            navigate through challenging levels, and test your skills. Use arrow keys 
-            to move and jump. How many levels can you complete?
-        </p>
+        <h1>Welcome to My Games</h1>
+        <div class="games-grid">
+            <div class="game-card">
+                <h2 class="game-title">Platformer Game</h2>
+                <p class="game-description">
+                    Jump into an exciting adventure! Collect coins, navigate through challenging levels, 
+                    and test your skills. Use arrow keys to move and jump.
+                </p>
+                <a href="./a.html" class="game-button" target="_self">Play Now</a>
+            </div>
+
+            <div class="game-card">
+                <h2 class="game-title">Banana Game</h2>
+                <p class="game-description">
+                    A fun and challenging game where you collect bananas. How many can you get?
+                </p>
+                <a href="./banana.html" class="game-button" target="_self">Play Now</a>
+            </div>
+
+            <div class="game-card">
+                <h2 class="game-title">Character Game</h2>
+                <p class="game-description">
+                    Control your character through various challenges and obstacles.
+                </p>
+                <a href="./character.html" class="game-button" target="_self">Play Now</a>
+            </div>
+
+            <div class="game-card">
+                <h2 class="game-title">Maze Game</h2>
+                <p class="game-description">
+                    Navigate through intricate mazes and find your way to the exit.
+                </p>
+                <a href="./maze.html" class="game-button" target="_self">Play Now</a>
+            </div>
+
+            <div class="game-card">
+                <h2 class="game-title">Working Game</h2>
+                <p class="game-description">
+                    A special game that's currently in development. Try it out!
+                </p>
+                <a href="./working.html" class="game-button" target="_self">Play Now</a>
+            </div>
+        </div>
     </div>
 </body>
 </html>
