@@ -44,6 +44,13 @@
         let blocks = [];
         let raycaster = new THREE.Raycaster();
         let mouse = new THREE.Vector2();
+        let pickaxe;
+        let pickaxeTargetRotX = 0;
+        let pickaxeTargetRotY = 0;
+
+        // Track mouse position in normalized device coordinates
+        let mouseScreenX = 0;
+        let mouseScreenY = 0;
 
         // Initialize the game
         function init() {
@@ -80,28 +87,77 @@
             window.addEventListener('resize', onWindowResize);
             document.addEventListener('mousedown', onMouseDown);
             document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('mousemove', (event) => {
+                mouseScreenX = (event.clientX / window.innerWidth) * 2 - 1; // -1 (left) to 1 (right)
+                mouseScreenY = -(event.clientY / window.innerHeight) * 2 + 1; // -1 (bottom) to 1 (top)
+            });
+
+            // Create a simple blue diamond pickaxe and add it as a child of the camera
+            createPickaxe();
 
             animate();
         }
 
+        function createPickaxe() {
+            pickaxe = new THREE.Group();
+            // Handle (brown)
+            const handleGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.6);
+            const handleMaterial = new THREE.MeshBasicMaterial({ color: 0x8B5A2B });
+            const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+            handle.position.y = -0.1;
+            pickaxe.add(handle);
+            // Head center (brown)
+            const headCenterGeometry = new THREE.BoxGeometry(0.18, 0.1, 0.1);
+            const headCenterMaterial = new THREE.MeshBasicMaterial({ color: 0x8B5A2B });
+            const headCenter = new THREE.Mesh(headCenterGeometry, headCenterMaterial);
+            headCenter.position.y = 0.2;
+            headCenter.position.x = 0;
+            pickaxe.add(headCenter);
+            // Head left tip (blue)
+            const headTipGeometry = new THREE.BoxGeometry(0.18, 0.1, 0.1);
+            const headTipMaterial = new THREE.MeshBasicMaterial({ color: 0x00BFFF });
+            const headLeft = new THREE.Mesh(headTipGeometry, headTipMaterial);
+            headLeft.position.y = 0.2;
+            headLeft.position.x = -0.18;
+            pickaxe.add(headLeft);
+            // Head right tip (blue)
+            const headRight = new THREE.Mesh(headTipGeometry, headTipMaterial);
+            headRight.position.y = 0.2;
+            headRight.position.x = 0.18;
+            pickaxe.add(headRight);
+            pickaxe.scale.set(0.2, 0.2, 0.2);
+            scene.add(pickaxe);
+        }
+
         function generateBlocks() {
             const blockTypes = [
-                { color: 0x808080, value: 1 }, // Iron
-                { color: 0xFFD700, value: 2 }, // Gold
-                { color: 0x00FFFF, value: 3 }  // Diamond
+                { color: 0x808080, value: 1, health: 1 }, // Iron
+                { color: 0xFFD700, value: 2, health: 3 }, // Gold
+                { color: 0x00FFFF, value: 3, health: 5 }  // Diamond
             ];
-
+            const minDist = 1.1; // Minimum distance between block centers
+            let attempts;
             for (let i = 0; i < 50; i++) {
                 const type = blockTypes[Math.floor(Math.random() * blockTypes.length)];
                 const geometry = new THREE.BoxGeometry(1, 1, 1);
                 const material = new THREE.MeshStandardMaterial({ color: type.color });
                 const block = new THREE.Mesh(geometry, material);
-                
-                block.position.x = Math.random() * 40 - 20;
-                block.position.y = Math.random() * 5;
-                block.position.z = Math.random() * 40 - 20;
-                
-                block.userData = { type: type };
+                attempts = 0;
+                let valid = false;
+                while (!valid && attempts < 100) {
+                    block.position.x = Math.random() * 40 - 20;
+                    block.position.y = Math.random() * 5;
+                    block.position.z = Math.random() * 40 - 20;
+                    valid = true;
+                    for (let j = 0; j < blocks.length; j++) {
+                        if (block.position.distanceTo(blocks[j].position) < minDist) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                    attempts++;
+                }
+                block.userData = { type: type, health: type.health };
                 blocks.push(block);
                 scene.add(block);
             }
@@ -123,44 +179,60 @@
             if (intersects.length > 0) {
                 const block = intersects[0].object;
                 const blockType = block.userData.type;
-                
-                // Update score and inventory
-                score += blockType.value;
-                if (blockType.color === 0x808080) inventory.iron++;
-                if (blockType.color === 0xFFD700) inventory.gold++;
-                if (blockType.color === 0x00FFFF) inventory.diamond++;
+                // Check distance from camera to block
+                const distance = camera.position.distanceTo(block.position);
+                if (distance > 5) return; // Too far to mine
+                // Decrease health
+                block.userData.health--;
+                if (block.userData.health <= 0) {
+                    // Update score and inventory
+                    score += blockType.value;
+                    if (blockType.color === 0x808080) inventory.iron++;
+                    if (blockType.color === 0xFFD700) inventory.gold++;
+                    if (blockType.color === 0x00FFFF) inventory.diamond++;
 
-                // Update UI
-                document.getElementById('score').textContent = `Score: ${score}`;
-                document.getElementById('inventory').textContent = 
-                    `Iron: ${inventory.iron} | Gold: ${inventory.gold} | Diamond: ${inventory.diamond}`;
+                    // Update UI
+                    document.getElementById('score').textContent = `Score: ${score}`;
+                    document.getElementById('inventory').textContent = 
+                        `Iron: ${inventory.iron} | Gold: ${inventory.gold} | Diamond: ${inventory.diamond}`;
 
-                // Remove block
-                scene.remove(block);
-                blocks = blocks.filter(b => b !== block);
+                    // Remove block
+                    scene.remove(block);
+                    blocks = blocks.filter(b => b !== block);
+                }
             }
         }
 
         function onKeyDown(event) {
             const speed = 0.5;
+            const rotateSpeed = 0.07;
             switch(event.key) {
                 case 'ArrowUp':
-                    camera.position.z -= speed;
+                    camera.position.x -= Math.sin(camera.rotation.y) * speed;
+                    camera.position.z -= Math.cos(camera.rotation.y) * speed;
                     break;
                 case 'ArrowDown':
-                    camera.position.z += speed;
+                    camera.position.x += Math.sin(camera.rotation.y) * speed;
+                    camera.position.z += Math.cos(camera.rotation.y) * speed;
                     break;
                 case 'ArrowLeft':
-                    camera.position.x -= speed;
+                    camera.rotation.y += rotateSpeed;
                     break;
                 case 'ArrowRight':
-                    camera.position.x += speed;
+                    camera.rotation.y -= rotateSpeed;
                     break;
             }
         }
 
         function animate() {
             requestAnimationFrame(animate);
+            if (pickaxe) {
+                // Place pickaxe exactly under the mouse cursor
+                const mouseNDC = new THREE.Vector3(mouseScreenX, mouseScreenY, 0.1); // z=0.1 is close to camera
+                mouseNDC.unproject(camera);
+                pickaxe.position.copy(mouseNDC);
+                pickaxe.rotation.set(0, 0, 0);
+            }
             renderer.render(scene, camera);
         }
 
