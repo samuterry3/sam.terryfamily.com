@@ -135,7 +135,7 @@
   <div class="pill">🕳️ <span id="hDepth">0m</span></div>
   <div class="pill">💎 <span id="hCore">?m</span></div>
   <div class="pill" id="comboPill" style="display:none">🔥 <span id="combo">x1.0</span></div>
-  <div class="pill">🦇 <span id="hKills">0</span> • 🧱 <span id="hMined">0</span></div>
+  <div class="pill">🧱 Mined: <span id="hMined">0</span></div>
   <div class="pill">🌞 <span id="hClock">Day</span></div>
 </div>
 <div id="feed"></div>
@@ -164,7 +164,7 @@
 
 <div id="menu" class="overlay">
   <h1 class="title">⛏️ EPIC MINING ⛏️</h1>
-  <div class="sub">Dig straight down — deeper = <b>richer ores</b>. Find the <b>💎 CORE 💎</b>, dodge <b>🦇 bats</b> &amp; <b>🌋 lava</b>, buy <b>⚡ god pickaxes</b> &amp; blow stuff up with <b>💣 TNT</b>!</div>
+  <div class="sub">Dig straight down — deeper = <b>richer ores</b>. Find the <b>💎 CORE 💎</b>, dodge <b>🌋 lava</b>, buy <b>⚡ god pickaxes</b> &amp; blow stuff up with <b>💣 TNT</b>!</div>
   <div class="panel">
     <span class="how">HOW TO PLAY</span><br>
     <kbd>W A S D</kbd> move • <kbd>Mouse</kbd> look • <kbd>Hold Click</kbd> mine / use item<br>
@@ -246,14 +246,14 @@ var boxGeo, oreMats = {};
 var columns = new Map();       // "x,z" -> {x,z,levels[],cur,mesh,ox,oz}
 var colMeshes = [];            // raycast list (rebuilt on change)
 var placed = [];               // player-placed blocks {mesh,hp,type}
-var torches = [], tnts = [], bats = [];
+var torches = [], tnts = [];
 var particles = [], floats = [];
 var yaw = Math.PI*0.75, pitch = -0.35;
 var player = { x:7.5, feet:2, z:10.5, vy:0, onGround:true, hp:100, maxHp:100, lastHurt:-99 };
 var keys = {}, miningHeld=false, useHeld=false, dragging=false, lastMX=0, lastMY=0;
 var locked=false, playing=false, dead=false, won=false, muted=false, shopOpen=false;
 var sel=0, pickIdx=0;
-var coins=0, earned=0, score=0, xp=0, level=1, combo=0, comboT=0, kills=0, mined=0;
+var coins=0, earned=0, score=0, xp=0, level=1, combo=0, comboT=0, mined=0;
 var inv = { block:12, torch:3, tnt:1, apple:1, ores:{} };
 var curTarget=null, curProg=0, hitSndT=0, sparkT=0, hintStep=0, hintT=0, lavaAcc=0;
 var shake=0, bobPh=0, dayT=0.3, elapsed=0, swingT=1, hurtCD=0;
@@ -294,8 +294,6 @@ var S = {
   eat:function(){ tone(400,0.08,'sine',0.1,200); setTimeout(function(){tone(500,0.08,'sine',0.1,200);},100); },
   place:function(){ tone(300,0.07,'square',0.08); noise(0.05,0.08,1500); },
   fuse:function(){ tone(1200,0.06,'square',0.06); },
-  bat:function(){ tone(900,0.12,'sawtooth',0.08,-500); },
-  batDie:function(){ tone(500,0.2,'sawtooth',0.1,400); noise(0.2,0.15,800); },
   win:function(){ var n=[523,659,784,1046,1318,1568]; n.forEach(function(f,i){setTimeout(function(){tone(f,0.25,'triangle',0.12);},i*130);}); },
   lava:function(){ noise(0.3,0.18,3000); tone(90,0.3,'sawtooth',0.08,-30); }
 };
@@ -555,66 +553,6 @@ function updateFloats(dt){
     f.el.style.opacity=''+Math.min(1,f.life*2);
   }
 }
-// ============================== BATS ==============================
-var batGeo, batWingGeo, batMat, batWingMat;
-function spawnBat(first){
-  var g=new THREE.Group();
-  var body=new THREE.Mesh(batGeo,batMat); g.add(body);
-  var wl=new THREE.Mesh(batWingGeo,batWingMat); wl.position.x=-0.35; g.add(wl);
-  var wr=new THREE.Mesh(batWingGeo,batWingMat); wr.position.x=0.35; g.add(wr);
-  var x=rand(-HALF,HALF), z=rand(-HALF,HALF);
-  g.position.set(x,clamp(player.feet+rand(1,4),-MAXD+1,5),z);
-  scene.add(g);
-  bats.push({g:g,wl:wl,wr:wr,hp:3,vx:rand(-2,2),vy:0,vz:rand(-2,2),flap:Math.random()*9,cd:0,respawn:0,dead:false});
-  if(!first){ /* silent */ }
-}
-function initBats(){
-  batGeo=new THREE.SphereGeometry(0.28,10,8); batMat=new THREE.MeshLambertMaterial({color:0x3a0a4a,emissive:0x550066});
-  batWingGeo=new THREE.BoxGeometry(0.55,0.06,0.35); batWingMat=new THREE.MeshBasicMaterial({color:0x1a1a2e,side:THREE.DoubleSide});
-  for(var i=0;i<6;i++) spawnBat(true);
-}
-function damageBat(b,dmg,point){
-  if(b.dead) return;
-  b.hp-=dmg; S.bat(); burst(point||b.g.position,0xcc66ff,8,3);
-  b.g.scale.set(1.4,1.4,1.4); setTimeout(function(){ if(b.g) b.g.scale.set(1,1,1); },120);
-  // aggro!
-  b.cd=0;
-  if(b.hp<=0){
-    b.dead=true; b.respawn=12; b.g.visible=false;
-    kills++; var g=addCoins(35); S.batDie();
-    burst(b.g.position,0xffd93d,20,5);
-    floatText(b.g.position.clone(),'+'+g+' 🪙','#ffd93d');
-    toast('🦇 Bat slain! +'+g+' 🪙');
-    if(Math.random()<0.18){ inv.apple++; toast('🍎 Bat dropped an apple!','#6bcf7f'); updateHotbar(); }
-    addXP(25);
-  }
-}
-function updateBats(dt){
-  for(var i=0;i<bats.length;i++){ var b=bats[i];
-    if(b.dead){ b.respawn-=dt; if(b.respawn<=0){ b.dead=false; b.hp=3; b.g.visible=true;
-      b.g.position.set(rand(-HALF,HALF),clamp(player.feet+rand(1,4),-MAXD+1,5),rand(-HALF,HALF)); } continue; }
-    b.flap+=dt*12;
-    b.wl.rotation.z=Math.sin(b.flap)*0.7; b.wr.rotation.z=-Math.sin(b.flap)*0.7;
-    tmpV.set(player.x,player.feet+1,player.z);
-    var d=b.g.position.distanceTo(tmpV);
-    if(d<9){ // chase
-      tmpV2.copy(tmpV).sub(b.g.position).normalize().multiplyScalar(3.4*dt);
-      b.g.position.add(tmpV2);
-      b.g.position.y+=Math.sin(elapsed*3+i)*dt*0.8;
-    } else { // wander (drift toward player depth so caves stay scary)
-      b.vx+=rand(-3,3)*dt; b.vz+=rand(-3,3)*dt;
-      var sp=Math.hypot(b.vx,b.vz); if(sp>2.5){b.vx*=2.5/sp;b.vz*=2.5/sp;}
-      b.g.position.x+=b.vx*dt; b.g.position.z+=b.vz*dt;
-      var wantY=clamp(player.feet+2.5+Math.sin(elapsed*1.5+i*2)*1.2,-MAXD+1,6);
-      b.g.position.y+=(wantY-b.g.position.y)*Math.min(1,dt*0.6);
-      if(Math.abs(b.g.position.x)>HALF) b.vx*=-1;
-      if(Math.abs(b.g.position.z)>HALF) b.vz*=-1;
-    }
-    b.g.lookAt(camera.position);
-    b.cd-=dt;
-    if(d<1.5&&b.cd<=0){ b.cd=1.1; hurtPlayer(8,'A cave bat drained you...'); }
-  }
-}
 // ============================== TNT / TORCH / PLACE ==============================
 var tntGeo, tntMat, torchGeo, torchMat, glowTex;
 function primeTNT(pos){
@@ -641,8 +579,7 @@ function explode(pos){
   }
   // placed blocks
   for(var i=placed.length-1;i>=0;i--){ if(placed[i].mesh.position.distanceTo(pos)<R+0.5){ scene.remove(placed[i].mesh); placed.splice(i,1); } }
-  // bats & player
-  for(var j=0;j<bats.length;j++){ var b=bats[j]; if(!b.dead&&b.g.position.distanceTo(pos)<R+1) damageBat(b,5,b.g.position); }
+  // player
   var pd=new THREE.Vector3(player.x,player.feet+1,player.z).distanceTo(pos);
   if(pd<R+1) hurtPlayer(Math.round((1-pd/(R+1))*45),'You blew yourself up! 💥');
   // light flash
@@ -693,16 +630,7 @@ function updateTNT(dt){
 // ============================== MINING ==============================
 function aimInfo(){
   ray.setFromCamera(centerV,camera);
-  // bats first (generous)
-  var batMeshes=[];
-  for(var i=0;i<bats.length;i++) if(!bats[i].dead) batMeshes.push(bats[i].g.children[0]);
-  var bh=ray.intersectObjects(batMeshes);
   var range=PICKS[pickIdx].range;
-  if(bh.length&&bh[0].distance<range+1.5){
-    var hitBat=null;
-    for(var bi=0;bi<bats.length;bi++){ if(!bats[bi].dead&&bats[bi].g.children[0]===bh[0].object){ hitBat=bats[bi]; break; } }
-    if(hitBat) return {kind:'bat',dist:bh[0].distance,point:bh[0].point,bat:hitBat};
-  }
   var targets=colMeshes.concat(placed.map(function(p){return p.mesh;}));
   var h=ray.intersectObjects(targets);
   if(h.length&&h[0].distance<range+1.5){
@@ -712,17 +640,15 @@ function aimInfo(){
   }
   return null;
 }
-var mineAcc=0;
 var blockDmg=0, lastMineMesh=null;
 function curProgDmg(){ return blockDmg; }
 function mineTick(dt){
   var info=aimInfo(); curTarget=info;
   var ring=$('ring'), nm=$('aimName');
-  var curMesh=info?(info.kind==='bat'?'bat':info.mesh):null;
-  if(curMesh!==lastMineMesh){ blockDmg=0; curProg=0; mineAcc=0; lastMineMesh=curMesh; }
+  var curMesh=info?info.mesh:null;
+  if(curMesh!==lastMineMesh){ blockDmg=0; curProg=0; lastMineMesh=curMesh; }
   if(!info||!miningHeld||shopOpen||dead){
     if(!info){ nm.textContent=''; }
-    else if(info.kind==='bat'){ nm.textContent='🦇 Cave Bat — WHACK IT!'; }
     else { var o0=ORES[info.type]; nm.textContent=o0.icon+' '+o0.name+(info.type==='bedrock'?' ⛔':''); }
     if(info&&sel!==0&&miningHeld){ useItemTick(info); }
     if(!miningHeld||sel!==0) curProg=Math.max(0,curProg-dt*3);
@@ -732,7 +658,6 @@ function mineTick(dt){
   if(sel!==0){ useItemTick(info); ring.style.background='conic-gradient(#ffd93d '+(curProg*360)+'deg, rgba(255,255,255,.12) 0deg)'; return; }
   // sel 0 = pickaxe
   var P=PICKS[pickIdx], dps=P.dmg*P.rate;
-  if(info.kind==='bat'){ mineAcc+=dt; if(mineAcc>1/P.rate){ mineAcc=0; swingT=0; damageBat(info.bat,P.dmg,info.point); shake=Math.min(0.4,shake+0.12);} nm.textContent='🦇 Cave Bat — WHACK IT!'; return; }
   var t=info.type;
   if(t==='bedrock'){ nm.textContent='🧱 Bedrock — unbreakable! Dig elsewhere.'; curProg=0; blockDmg=0;
     ring.style.background='conic-gradient(rgba(255,80,80,.9) 0deg, rgba(255,255,255,.12) 0deg)'; return; }
@@ -868,7 +793,7 @@ function updateHUD(){
   $('hDepth').textContent=dep+'m';
   var dc=Math.hypot(player.x-0,player.z-0);
   $('hCore').textContent=Math.round(dc)+'m '+coreArrow();
-  $('hKills').textContent=kills; $('hMined').textContent=mined;
+  $('hMined').textContent=mined;
   var t=(dayT%1), day=t<0.55;
   $('hClock').textContent=day?'Day':'Night';
   if(combo>=2&&comboT>0){ $('comboPill').style.display=''; $('combo').textContent='x'+(1+Math.min(combo,20)*0.1).toFixed(1)+' ('+combo+')';
@@ -1028,7 +953,7 @@ function animate(t){
   requestAnimationFrame(animate);
   var dt=Math.min(0.05,((t-lastT)/1000)||0.016); lastT=t;
   if(!playing) { renderer.render(scene,camera); return; }
-  if(!dead&&!shopOpen){ elapsed+=dt; updatePlayer(dt); mineTick(dt); updateBats(dt); updateTNT(dt); }
+  if(!dead&&!shopOpen){ elapsed+=dt; updatePlayer(dt); mineTick(dt); updateTNT(dt); }
   updateParticles(dt); updateFloats(dt); updatePickaxe(dt); updateSky(dt);
   renderer.render(scene,camera);
   // throttled HUD
@@ -1061,7 +986,7 @@ function init(){
   torchGeo=new THREE.BoxGeometry(0.18,0.4,0.18);
   torchMat=new THREE.MeshBasicMaterial({color:0xffaa22});
   buildWorld();
-  initParticles(); initBats();
+  initParticles();
   // ground skirt + walls so world looks finished
   var skirt=new THREE.Mesh(new THREE.BoxGeometry((HALF*2+3),1,(HALF*2+3)),new THREE.MeshLambertMaterial({color:0x2a1f14}));
   skirt.position.y=-MAXD-1.1; scene.add(skirt);
