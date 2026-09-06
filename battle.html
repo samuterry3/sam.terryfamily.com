@@ -103,7 +103,7 @@
   <canvas id="game" width="960" height="540"></canvas>
   <div id="menu">
     <h2>⚔️ COIN BATTLE ARENA 🪙</h2>
-    <p>Top-down shooter! Hunt <b>the bot</b> — and in 2-player mode, hunt <b>each other</b>.<br>
+    <p>Top-down shooter! Hunt <b>the bots</b> — and in 2-player mode, hunt <b>each other</b>.<br>
     Every kill pays <b style="color:#ffd93d">+20 coins</b> (buy <b>2x Coins</b> to get 40!). Chain kills for <b>🔥 STREAKS</b> + bonus coins!<br>
     Every 5th kill spawns a <b>👑 BOSS BOT</b> (+100 bonus!). Grab <b>power-up drops</b> ⚡❤️🛡️⭐.<br>
     Spend coins on <b>weapons</b> 🔫, <b>kill-gear</b> 💣 and <b>house stuff</b> 🏠 (walls, turrets, heal pad).</p>
@@ -111,7 +111,7 @@
       <button class="epic" id="btn1p">▶ 1 PLAYER vs BOTS</button>
       <button class="gold" id="btn2p">👯 2 PLAYERS + BOTS</button>
     </div>
-    <p style="font-size:13px">P1: <kbd>WASD</kbd> move • mouse aim • <kbd>click</kbd>/<kbd>SPACE</kbd> shoot • <kbd>G</kbd> grenade • <kbd>SHIFT</kbd> dash • <kbd>B</kbd> shop<br>
+    <p style="font-size:13px">P1: <kbd>WASD</kbd> or <kbd>←↑↓→</kbd> move (1P) • mouse aim (auto-aim if no mouse!) • <kbd>click</kbd>/<kbd>SPACE</kbd> shoot • <kbd>G</kbd> grenade • <kbd>SHIFT</kbd> dash • <kbd>B</kbd> shop<br>
     P2: <kbd>←↑↓→</kbd> move • <kbd>.</kbd> shoot (auto-aim) • <kbd>/</kbd> grenade • <kbd>ENTER</kbd> dash • shares shop with <kbd>B</kbd></p>
   </div>
   <div id="shop">
@@ -142,14 +142,14 @@
 </div>
 <aside id="side">
   <span class="how">🎮 HOW TO PLAY</span>
-  <div>🎯 Kill the bot or the other player → <b>+20 🪙</b></div>
+  <div>🎯 Kill bots or the other player → <b>+20 🪙</b></div>
   <div>🔥 Fast kills = <b>DOUBLE KILL</b>, <b>RAMPAGE</b> + bonus coins!</div>
   <div>👑 Every 5th kill = <b>BOSS BOT</b> (+100!) + bonus drops!</div>
   <div><kbd>B</kbd> open shop any time (pauses)</div>
   <div><kbd>1</kbd>–<kbd>6</kbd> switch owned weapons</div>
   <hr style="border-color:#333">
   <span class="how">🔫 P1 (green)</span>
-  <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move • mouse aim</div>
+  <div><kbd>WASD</kbd> or <kbd>←↑↓→</kbd> move • mouse aim (or auto-aim!) </div>
   <div><kbd>click</kbd> / <kbd>SPACE</kbd> shoot • <kbd>G</kbd> grenade • <kbd>SHIFT</kbd> ⚡dash</div>
   <span class="how">🔵 P2 (blue, 2P mode)</span>
   <div><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move</div>
@@ -279,7 +279,7 @@ function spawnBot(boss=false){
       dmg:Math.round(10+Math.min(14,killsTotal*0.5)),hitT:0,ph:Math.random()*6});
   }
 }
-function targetBotCount(){ return 1; } // just ONE bot at a time — a new (tougher) one spawns after each kill
+function targetBotCount(){ return 5; } // FIVE bots at a time — replacements (or a BOSS) spawn after each kill
 
 function startGame(tp){
   twoPlayer=tp; state='play';
@@ -324,7 +324,8 @@ window.addEventListener('keydown',e=>{
 });
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;keys[e.key]=false;});
 let mouse={x:W/2,y:H/2,down:false};
-canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect();mouse.x=(e.clientX-r.left)*(canvas.width/r.width);mouse.y=(e.clientY-r.top)*(canvas.height/r.height);});
+let lastMouseMove=-10; // game-time of last mouse move: stale mouse = keyboard-only auto-aim!
+canvas.addEventListener('mousemove',e=>{const r=canvas.getBoundingClientRect();mouse.x=(e.clientX-r.left)*(canvas.width/r.width);mouse.y=(e.clientY-r.top)*(canvas.height/r.height);lastMouseMove=time;});
 canvas.addEventListener('mousedown',e=>{ac();mouse.down=true;if(state==='menu')return;});
 window.addEventListener('mouseup',()=>mouse.down=false);
 canvas.addEventListener('touchstart',e=>{ac();},{passive:true});
@@ -471,7 +472,11 @@ function playerShoot(p){
   const w=weaponOf(p);
   p.fireCD=w.rate*(p.rapidT>0?0.45:1);
   let ang=p.face;
-  if(p.id===0){ ang=Math.atan2(mouse.y-p.y,mouse.x-p.x); p.face=ang; }
+  if(p.id===0){
+    if(time-lastMouseMove<3){ ang=Math.atan2(mouse.y-p.y,mouse.x-p.x); } // mouse aim
+    else { const t=nearestEnemy(p.x,p.y,{type:'player',id:p.id}); ang=t?Math.atan2(t.y-p.y,t.x-p.x):p.face; } // keyboard-only auto-aim!
+    p.face=ang;
+  }
   else {
     // P2 auto-aim: nearest enemy
     const t=nearestEnemy(p.x,p.y,p);
@@ -644,8 +649,8 @@ function update(dt){
   const P1=players[0];
   if(P1&&P1.alive){
     let dx=0,dy=0;
-    if(keys['w']||keys['W'])dy-=1; if(keys['s']||keys['S'])dy+=1;
-    if(keys['a']||keys['A'])dx-=1; if(keys['d']||keys['D'])dx+=1;
+    if(keys['w']||keys['W']||(!twoPlayer&&keys['ArrowUp']))dy-=1; if(keys['s']||keys['S']||(!twoPlayer&&keys['ArrowDown']))dy+=1;
+    if(keys['a']||keys['A']||(!twoPlayer&&keys['ArrowLeft']))dx-=1; if(keys['d']||keys['D']||(!twoPlayer&&keys['ArrowRight']))dx+=1;
     if(dx||dy){const l=Math.hypot(dx,dy);dx/=l;dy/=l;
       moveWithWalls(P1,dx*P1.speed*dt,dy*P1.speed*dt);
       if(Math.random()<0.15)particles.push({x:P1.x,y:P1.y+12,vx:(Math.random()-0.5)*40,vy:20,life:15,max:15,color:'rgba(255,255,255,.4)',size:2,grav:0});
@@ -654,7 +659,8 @@ function update(dt){
       moveWithWalls(P1,Math.cos(P1.face)*900*dt,Math.sin(P1.face)*900*dt);
       particles.push({x:P1.x,y:P1.y,vx:0,vy:0,life:16,max:16,color:P1.color,size:5,grav:0});
     }
-    P1.face=Math.atan2(mouse.y-P1.y,mouse.x-P1.x);
+    if(time-lastMouseMove<3)P1.face=Math.atan2(mouse.y-P1.y,mouse.x-P1.x); // mouse aim
+    else if(dx||dy)P1.face=Math.atan2(dy,dx); // keyboard-only: face where you run
     if(mouse.down||keys[' '])playerShoot(P1);
   }
   const P2=players[1];
