@@ -118,6 +118,7 @@
   <button class="epic" id="startBtn">▶ PLAY</button>
   <button class="ghost" id="checkpointBtn" style="display:none">↩ Checkpoint</button>
   <button class="ghost" id="skipBtn">⏭ Skip</button>
+  <button class="ghost" id="saveBtn">💾 Save</button>
   <button class="ghost" id="muteBtn">🔊 Sound: ON</button>
   <button class="ghost" id="voiceBtn">🐄 Test voice</button>
 </div>
@@ -136,7 +137,8 @@
   <div class="ctrl-row">🪙 Grab <b>ALL coins</b> to unlock the exit 🔒→🏁</div>
   <div class="ctrl-row">⬇ Stomp enemies from above!</div>
   <div class="ctrl-row">👹 Boss fight every 5 levels — stomp him!</div>
-  <div class="ctrl-row"><kbd>M</kbd> mute &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>N</kbd> skip level</div>
+  <div class="ctrl-row"><kbd>M</kbd> mute &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>N</kbd> skip</div>
+  <div class="ctrl-row">💾 <kbd>Q</kbd> save game (resume with <kbd>C</kbd>)</div>
 </aside>
 </div>
 <a class="back" href="./index.html">← back to all games</a>
@@ -158,6 +160,7 @@ const elBest = document.getElementById('hBest');
 const startBtn = document.getElementById('startBtn');
 const cpBtn = document.getElementById('checkpointBtn');
 const skipBtn = document.getElementById('skipBtn');
+const saveBtn = document.getElementById('saveBtn');
 const muteBtn = document.getElementById('muteBtn');
 const voiceBtn = document.getElementById('voiceBtn');
 
@@ -235,6 +238,7 @@ window.addEventListener('keydown', e => {
   if (e.key==='r'||e.key==='R') { if (state==='play') respawn(true); }
   if ((e.key==='c'||e.key==='C') && state==='gameover') resumeFromCheckpoint();
   if ((e.key==='n'||e.key==='N') && state==='play') skipLevel();
+  if ((e.key==='q'||e.key==='Q') && state==='play') manualSave();
   if ((e.key==='Enter'||e.key===' ') && (state==='menu'||state==='gameover')) startGame();
   if ((e.key==='ArrowUp'||e.key===' '||e.key==='w'||e.key==='W') && state==='play') tryJump();
   if ((e.key==='Shift'||e.key==='k'||e.key==='K') && state==='play') tryDash();
@@ -468,6 +472,15 @@ function refreshSkipBtn(){
   skipBtn.style.opacity = skipsLeft>0 ? '' : '0.5';
 }
 skipBtn.addEventListener('click', ()=>{ ac(); skipLevel(); });
+function manualSave(){
+  if (state!=='play') return;
+  checkpoint = isBossLevel
+    ? {round:round, level:4, boss:true, score:score}
+    : {round:round, level:levelIndex, boss:false, score:score};
+  saveCheckpoint(); SFX.unlock();
+  floater(player.x-60,player.y-50,'💾 Saved! Resume with C if you die','#6bcf7f');
+}
+saveBtn.addEventListener('click', ()=>{ ac(); manualSave(); });
 function respawn(loseLife=false) {
   if (loseLife) { lives--; SFX.hurt(); shake=14; burst(player.x+14,player.y+18,'#ff416c',26,5); }
   if (lives<=0) { gameOver(); return; }
