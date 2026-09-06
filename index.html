@@ -64,6 +64,26 @@
             from { background-position: 0 0; }
             to { background-position: -600px 0; }
         }
+        /* floating nachos (food) in the background - subtle, behind content */
+        #nacho-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .nacho {
+            position: absolute;
+            bottom: -80px;
+            opacity: 0.55;
+            filter: drop-shadow(0 0 8px rgba(255, 200, 50, 0.45));
+            animation: nachoFloat linear infinite;
+            user-select: none;
+        }
+        @keyframes nachoFloat {
+            from { transform: translateY(0) rotate(0deg); }
+            to { transform: translateY(-120vh) rotate(360deg); }
+        }
         /* dark vignette so text stays readable over bright LEDs */
         body::after {
             content: '';
@@ -154,6 +174,22 @@
 </head>
 <body>
     <div id="led-bg" aria-hidden="true"><div class="led-layer layer-glow"></div><div class="led-layer"></div><div class="led-layer layer2"></div></div>
+    <div id="nacho-bg" aria-hidden="true">
+        <span class="nacho" style="left:5%; font-size:34px; animation-duration:14s; animation-delay:0s;">🌮</span>
+        <span class="nacho" style="left:15%; font-size:26px; animation-duration:18s; animation-delay:-4s;">🧀</span>
+        <span class="nacho" style="left:25%; font-size:40px; animation-duration:12s; animation-delay:-8s;">🌮</span>
+        <span class="nacho" style="left:35%; font-size:28px; animation-duration:16s; animation-delay:-2s;">🌶️</span>
+        <span class="nacho" style="left:45%; font-size:36px; animation-duration:13s; animation-delay:-6s;">🌮</span>
+        <span class="nacho" style="left:55%; font-size:24px; animation-duration:19s; animation-delay:-10s;">🧀</span>
+        <span class="nacho" style="left:65%; font-size:38px; animation-duration:15s; animation-delay:-3s;">🌮</span>
+        <span class="nacho" style="left:75%; font-size:30px; animation-duration:17s; animation-delay:-7s;">🧀</span>
+        <span class="nacho" style="left:85%; font-size:42px; animation-duration:11s; animation-delay:-1s;">🌮</span>
+        <span class="nacho" style="left:92%; font-size:26px; animation-duration:20s; animation-delay:-12s;">🌶️</span>
+        <span class="nacho" style="left:10%; font-size:22px; animation-duration:22s; animation-delay:-14s;">🌮</span>
+        <span class="nacho" style="left:50%; font-size:22px; animation-duration:21s; animation-delay:-9s;">🧀</span>
+        <span class="nacho" style="left:70%; font-size:24px; animation-duration:23s; animation-delay:-5s;">🌮</span>
+        <span class="nacho" style="left:90%; font-size:24px; animation-duration:24s; animation-delay:-11s;">🧀</span>
+    </div>
     <div class="container">
         <h1>Welcome</h1>
         <div class="games-grid">
