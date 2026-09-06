@@ -99,13 +99,13 @@
 </head>
 <body>
 <h1>🐄 COW PLATFORMER 🐄</h1>
-<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Collect <b>ALL coins</b> to unlock the exit • Endless rounds, hearts refill every <b>5 levels</b>, checkpoints every <b>2 levels</b>! <span style="color:#555">(v22 checkpoints)</span></div>
+<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Collect <b>ALL coins</b> • <b>100 levels</b>, boss every <b>10 levels</b>! <span style="color:#555">(v23 levels)</span></div>
 <div id="hud">
   <div class="pill">⭐ Score: <span id="hScore">0</span></div>
   <div class="pill">🪙 <span id="hCoins">0/0</span></div>
   <div class="pill">❤️ <span id="hLives">3</span></div>
-  <div class="pill">🌍 Level <span id="hLevel">1/5</span></div>
-  <div class="pill">🔁 Round <span id="hRound">1</span></div>
+  <div class="pill">🌍 Level <span id="hLevel">1/100</span></div>
+  <div class="pill">🔁 Round <span id="hRound">1/10</span></div>
   <div class="pill">⏱️ <span id="hTime">0.0s</span></div>
   <div class="pill">🏆 Best: <span id="hBest">0</span></div>
 </div>
@@ -136,7 +136,7 @@
   <div class="ctrl-row"><kbd>SHIFT</kbd> / <kbd>K</kbd><br>⚡ <b>DASH</b></div>
   <div class="ctrl-row">🪙 Grab <b>ALL coins</b> to unlock the exit 🔒→🏁</div>
   <div class="ctrl-row">⬇ Stomp enemies from above!</div>
-  <div class="ctrl-row">👹 Boss fight every 5 levels — stomp him!</div>
+  <div class="ctrl-row">👹 Boss fight every 10 levels — stomp him!</div>
   <div class="ctrl-row"><kbd>M</kbd> mute &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>N</kbd> skip</div>
   <div class="ctrl-row">💾 <kbd>Q</kbd> save game (resume with <kbd>C</kbd>)</div>
 </aside>
@@ -239,7 +239,7 @@ window.addEventListener('keydown', e => {
   if ((e.key==='c'||e.key==='C') && state==='gameover') resumeFromCheckpoint();
   if ((e.key==='n'||e.key==='N') && state==='play') skipLevel();
   if ((e.key==='q'||e.key==='Q') && state==='play') manualSave();
-  if ((e.key==='Enter'||e.key===' ') && (state==='menu'||state==='gameover')) startGame();
+  if ((e.key==='Enter'||e.key===' ') && (state==='menu'||state==='gameover'||state==='victory')) startGame();
   if ((e.key==='ArrowUp'||e.key===' '||e.key==='w'||e.key==='W') && state==='play') tryJump();
   if ((e.key==='Shift'||e.key==='k'||e.key==='K') && state==='play') tryDash();
 });
@@ -360,6 +360,53 @@ const LEVELS = [
   }
 ];
 
+// ---------- GENERATED STAGES (6-9, 11-19, ... bosses on 10,20,...,100) ----------
+function mulberry(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const THEMES=[
+  {sky:['#2b1055','#7597de'], accent:'#ff9a3c', name:'SUNSET MEADOWS'},
+  {sky:['#050518','#2a0a5e'], accent:'#00f0ff', name:'NEON NIGHT'},
+  {sky:['#1a0202','#7a0e0e'], accent:'#ff4b2b', name:'LAVA CAVERN'},
+  {sky:['#06121f','#1d5f8a'], accent:'#aef1ff', name:'FROST PEAKS'},
+  {sky:['#12002e','#4b0082'], accent:'#ffd93d', name:'RAINBOW CITADEL'}
+];
+function genLevel(n){
+  const R = mulberry(n*7919+17);
+  const th = THEMES[(n-1)%5];
+  const d = n/100;
+  const platforms=[{x:0,y:490,w:200,h:50},{x:760,y:490,w:200,h:50}];
+  const xs=[230,400,560,700], ys=[425,370,315,260];
+  const steps=[];
+  for(let s=0;s<4;s++){
+    const w=Math.max(125, Math.round(175 - d*40 - R()*15));
+    steps.push({x:Math.round(xs[s]+(R()-0.5)*30), y:Math.round(ys[s]+R()*10), w:w});
+  }
+  const coins=[];
+  steps.forEach((st,s)=>{
+    const mv = (n>=8 && s===2 && R()<0.5);
+    platforms.push(mv ? {x:st.x,y:st.y,w:st.w,h:18,mv:(R()<0.5?'x':'y'),range:60+Math.round(R()*30),speed:1.1+d*0.8} : {x:st.x,y:st.y,w:st.w,h:18});
+    coins.push({x:st.x+Math.round(st.w/2)-11, y:st.y-35});
+  });
+  coins.push({x:800, y:440});
+  const gems=[{x:Math.round(640+R()*60), y:215}];
+  if (R()<0.25+d*0.3) gems.push({x:Math.round(440+R()*80), y:295});
+  const hearts = (n%3===0) ? [{x:steps[1].x+60, y:steps[1].y-35}] : [];
+  const springs = (R()<0.35) ? [{x:60,y:465,w:60,h:25}] : [];
+  const spw=Math.round(100+d*220);
+  const spikes=[{x:Math.round(480-spw/2), y:472, w:spw, h:18}];
+  const enemies=[];
+  const walkers = 1+Math.min(2, Math.floor(n/25));
+  for(let k=0;k<walkers;k++){
+    const st = steps[Math.floor(R()*steps.length)];
+    enemies.push({x:st.x+30, y:st.y-32, w:30, h:32, kind:'walker', range:45, speed:1.6+d});
+  }
+  if (n>12) enemies.push({x:480, y:Math.round(190+R()*40), w:28, h:28, kind:'flyer', range:70, speed:2.2+d});
+  return {platforms, coins, gems, hearts, springs, spikes, enemies,
+    goal:{x:880,y:420}, start:{x:40,y:400}, name:th.name, sub:'Stage '+n, sky:th.sky, accent:th.accent};
+}
+// global stage number 1..100 (boss = 10,20,...,100)
+function levelN(){ return isBossLevel ? (round-1)*10+10 : (round-1)*10+levelIndex+1; }
+let levelTheme=null, levelName='';
+
 // ---------- STATE ----------
 let state = 'menu'; // menu | play | dead | levelclear | roundclear | gameover
 let levelIndex = 0, round = 1, score = 0, lives = 5, coinsGot = 0, coinsTotal = 0, skipsLeft = 1;
@@ -369,7 +416,7 @@ elBest.textContent = best;
 // checkpoint every 2 levels (survives refresh via localStorage)
 let checkpoint = {round:1, level:0, boss:false, score:0};
 try { const cp = JSON.parse(localStorage.getItem('epicPlatformerCheckpoint')||'null');
-  if (cp && (cp.round|0)>0) checkpoint = {round:cp.round|0, level:Math.min(4,Math.max(0,cp.level|0)), boss:!!cp.boss, score:Math.max(0,cp.score|0)};
+  if (cp && (cp.round|0)>0) checkpoint = {round:Math.min(10,Math.max(1,cp.round|0)), level:Math.min(8,Math.max(0,cp.level|0)), boss:!!cp.boss, score:Math.max(0,cp.score|0)};
 } catch(e){}
 function saveCheckpoint(){ try{ localStorage.setItem('epicPlatformerCheckpoint', JSON.stringify(checkpoint)); }catch(e){} }
 function hasCheckpoint(){ return checkpoint.boss || (checkpoint.level|0)>0 || (checkpoint.round|0)>1; }
@@ -395,14 +442,16 @@ function allCoinsCollected(){ return coins.length>0 && coins.every(c=>c.got); }
 let exitDeniedCD = 0;
 
 function loadLevel(i, keepScore=true) {
-  const L = LEVELS[i];
+  const N = (round-1)*10 + i + 1;
+  const L = (N<=5) ? LEVELS[i] : genLevel(N);
+  levelTheme = {sky:L.sky, accent:L.accent}; levelName = L.name;
   platforms = L.platforms.map(p=>({...p, ox:p.x, oy:p.y, ph:Math.random()*Math.PI*2}));
   coins = L.coins.map(c=>({...c, w:22,h:22, got:false, ph:Math.random()*6}));
   gems = L.gems.map(c=>({...c, w:26,h:26, got:false, ph:Math.random()*6}));
   hearts = L.hearts.map(c=>({...c, w:24,h:24, got:false}));
   spikes = L.spikes.map(s=>({...s}));
   springs = L.springs.map(s=>({...s, anim:0}));
-  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*0.65*(1+(round-1)*0.05)*(1+i*0.08), spd:0.7*(1+(round-1)*0.05)*(1+i*0.08)}));
+  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*0.65*(1+(N-1)*0.008), spd:0.7*(1+(N-1)*0.008)}));
   goal = {...L.goal, w:44, h:64};
   isBossLevel = false; boss = null; minionWave = 0;
   curStart = {...L.start};
@@ -411,7 +460,7 @@ function loadLevel(i, keepScore=true) {
   levelTime = 0; bannerT = 150; shake = 0;
   exitDeniedCD = 0;
   coinsTotal = coins.length;
-  if (i%2===0 && i>0) { checkpoint={round:round, level:i, boss:false, score:score}; saveCheckpoint();
+  if (N%2===1 && N>1) { checkpoint={round:round, level:i, boss:false, score:score}; saveCheckpoint();
     floater(player.x-60,player.y-50,'🚩 Checkpoint!','#ffd93d'); }
   updateHUD();
 }
@@ -457,9 +506,9 @@ function startGame() {
 }
 function resumeFromCheckpoint(){
   if (!hasCheckpoint()) return;
-  round=checkpoint.round|0||1; score=Math.max(0,checkpoint.score|0); lives=5; coinsGot=0; totalTime=0;
-  if (checkpoint.boss) { levelIndex=4; loadBossLevel(); }
-  else { levelIndex=Math.min(4,Math.max(0,checkpoint.level|0)); loadLevel(levelIndex); }
+  round=Math.min(10,checkpoint.round|0||1); score=Math.max(0,checkpoint.score|0); lives=5; coinsGot=0; totalTime=0;
+  if (checkpoint.boss) { levelIndex=8; loadBossLevel(); }
+  else { levelIndex=Math.min(8,Math.max(0,checkpoint.level|0)); loadLevel(levelIndex); }
   state='play'; startBtn.textContent='↻ RESTART';
   refreshCheckpointBtn(); refreshSkipBtn(); SFX.unlock();
   floater(player.x-60,player.y-40,`🚩 Resumed at ${cpLabel()}!`,'#ffd93d');
@@ -488,6 +537,7 @@ function respawn(loseLife=false) {
   updateHUD();
 }
 function gameOver(){ state='gameover'; SFX.lose(); saveBest(); refreshCheckpointBtn(); }
+function victory(){ state='victory'; SFX.win(); confetti(); saveBest(); }
 function saveBest(){ if(score>best){best=score; localStorage.setItem('epicPlatformerBest',String(best));} elBest.textContent=best; }
 function nextLevel(skipped=false) {
   if (isBossLevel) { if (!bossDefeated && !skipped) return; }
@@ -497,18 +547,21 @@ function nextLevel(skipped=false) {
   floaters.push({x:goal.x-40,y:goal.y-40,text: skipped ? 'Skipped!' : `+${100+timeBonus} TIME BONUS!`,life:90,color:'#ffd93d'});
   SFX.win();
   speakMoo(); mooT = 140; // a cow congratulates you on every level clear!
-  if (!isBossLevel && levelIndex+1 >= LEVELS.length) {
-    // every 5 levels: BOSS FIGHT!
+  if (!isBossLevel && levelIndex+1 >= 9) {
+    // every 10th level: BOSS FIGHT!
     state='levelclear'; bannerT=120;
     floater(goal.x-60,goal.y-40,'👹 BOSS FIGHT!','#ff6b6b');
     setTimeout(()=>{ if(state==='levelclear'){ loadBossLevel(); state='play';
-      checkpoint={round:round, level:4, boss:true, score:score}; saveCheckpoint();
+      checkpoint={round:round, level:8, boss:true, score:score}; saveCheckpoint();
       floater(player.x-60,player.y-60,'🚩 Checkpoint!','#ffd93d');
     } },1500);
   }
   else if (!isBossLevel) { levelIndex++; state='levelclear'; bannerT=110; setTimeout(()=>{ if(state==='levelclear'){ loadLevel(levelIndex); state='play'; } },1400); }
+  else if (round >= 10) {
+    victory();
+  }
   else {
-    // every 5 levels = 1 round: loop endlessly, hearts regenerate
+    // boss of this round beaten: on to the next round of 10
     const cleared = round;
     round++;
     state='roundclear'; bannerT=170; confetti();
@@ -560,7 +613,6 @@ function update() {
   if (state!=='play') return;
   levelTime += 1/60; totalTime += 1/60;
 
-  const L = LEVELS[levelIndex];
   // moving platforms
   platforms.forEach(p=>{
     if(p.mv==='x') p.x = p.ox + Math.sin(time*p.speed*0.02 + p.ph)*p.range;
@@ -651,7 +703,7 @@ function update() {
     }
   });
 
-  // boss fight (every 5 levels) — stomp the bull, dodge the charge!
+  // boss fight (every 10th level) — stomp the bull, dodge the charge!
   if (boss && boss.alive) {
     const b = boss;
     b.t += 1/60;
@@ -736,8 +788,8 @@ function loadLevelKeepItems(){ player.x=curStart.x; player.y=curStart.y; player.
 
 function updateHUD(){
   elScore.textContent=score; elLives.textContent='❤'.repeat(Math.max(0,Math.min(5,lives)))+` (${lives})`;
-  elLevel.textContent = isBossLevel ? 'BOSS' : `${levelIndex+1}/5`;
-  elRound.textContent=round;
+  elLevel.textContent = isBossLevel ? `BOSS ${levelN()}/100` : `${levelN()}/100`;
+  elRound.textContent=`${round}/10`;
   if (isBossLevel) { elCoins.textContent = boss ? `👹${boss.hp}` : ''; }
   else { const got = coins.filter(c=>c.got).length; elCoins.textContent=`${got}/${coinsTotal}`; }
   elTime.textContent=levelTime.toFixed(1)+'s';
@@ -1016,7 +1068,7 @@ function drawHUDCanvas(){
   // progress + timer bar
   ctx.fillStyle='rgba(0,0,0,.45)'; roundRect(12,12,220,26,13); ctx.fill();
   ctx.fillStyle='#ffd93d'; ctx.font='bold 14px Arial';
-  ctx.fillText(isBossLevel?`👹 ${bossName}`:`Lv ${levelIndex+1}  ${LEVELS[levelIndex].name}`,22,30);
+  ctx.fillText(`Lv ${levelN()}/100`,22,30);
   // coin / exit status (boss HP on boss levels)
   if (isBossLevel) {
     const open = bossDefeated;
@@ -1071,9 +1123,9 @@ function drawCenter(text, sub, color='#fff'){
 function draw(){
   ctx.save();
   if(shake>0) ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
-  const L = isBossLevel ? LEVELS[4] : LEVELS[levelIndex];
+  const L = isBossLevel ? LEVELS[4] : (levelTheme||LEVELS[0]);
   drawBackground(L);
-  if(state==='menu'){ drawCenter('🐄 COW PLATFORMER 🐄','◀ ▶ / A D to MOVE  •  SPACE to JUMP  •  SHIFT to DASH\nCollect ALL coins! Hearts refill every 5 levels — how far can you go?','#ffd93d'); ctx.restore(); return; }
+  if(state==='menu'){ drawCenter('🐄 COW PLATFORMER 🐄','◀ ▶ / A D to MOVE  •  SPACE to JUMP  •  SHIFT to DASH\nCollect ALL coins! 100 levels, boss every 10 — how far can you go?','#ffd93d'); ctx.restore(); return; }
   drawPlatforms(L);
   drawPickups();
   drawGoal();
@@ -1088,9 +1140,9 @@ function draw(){
     ctx.textAlign='center';
     ctx.save(); ctx.shadowColor=L.accent; ctx.shadowBlur=25;
     ctx.fillStyle='#fff'; ctx.font='800 44px Arial';
-    ctx.fillText(isBossLevel?'👹 BOSS FIGHT':(round>1?`ROUND ${round} • LEVEL ${levelIndex+1}`:`LEVEL ${levelIndex+1}`),W/2,150);
+    ctx.fillText(isBossLevel?'👹 BOSS FIGHT':(round>1||levelIndex>0?`ROUND ${round} • LEVEL ${levelN()}`:`LEVEL ${levelN()}`),W/2,150);
     ctx.fillStyle=L.accent; ctx.font='bold 22px Arial';
-    ctx.fillText(isBossLevel?(bossName+' — Round '+round):(L.name+' — '+L.sub),W/2,185);
+    ctx.fillText(isBossLevel?(bossName+' — Round '+round):(levelName+' — Stage '+levelN()),W/2,185);
     ctx.restore(); ctx.textAlign='left'; ctx.globalAlpha=1;
   }
   drawMoo();
@@ -1106,7 +1158,8 @@ function draw(){
   }
   if(state==='gameover'){
     const cp = hasCheckpoint() ? `\n🚩 Checkpoint: ${cpLabel()} — press C to resume` : '';
-    drawCenter('💀 GAME OVER',`Score: ${score}   •   Rounds: ${round}   •   Best: ${best}\nTip: stomp enemies, don't touch spikes!${cp}`,'#ff6b6b');
+    drawCenter('💀 GAME OVER',`Score: ${score}   •   Level: ${levelN()}/100   •   Best: ${best}\nTip: stomp enemies, don't touch spikes!${cp}`,'#ff6b6b');
+  if(state==='victory') drawCenter('🏆 YOU BEAT ALL 100 LEVELS!',`Score: ${score}   •   Time: ${totalTime.toFixed(1)}s   •   Best: ${best}\nLegendary cow! Press ENTER to play again!`,'#ffd93d');
   }
   ctx.restore();
 }
