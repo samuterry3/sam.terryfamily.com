@@ -47,10 +47,19 @@
     backdrop-filter: blur(6px);
   }
   .pill span { color: #ffd93d; }
-  #controls-help { color:#888; font-size: 13px; text-align:center; max-width: 960px; line-height:1.7; }
+  #controls-help {
+    color: #fff; font-size: 17px; text-align: center; max-width: 960px; line-height: 2;
+    background: rgba(255,255,255,.08);
+    border: 2px solid rgba(255,217,61,.5);
+    border-radius: 12px;
+    padding: 12px 18px; margin-top: 14px;
+    box-shadow: 0 0 20px rgba(255,217,61,.15);
+  }
+  #controls-help .how { color: #ffd93d; font-weight: 800; letter-spacing: 1px; }
   kbd {
-    background:#222; border:1px solid #555; border-bottom-width:3px;
-    border-radius:6px; padding:1px 7px; font-family:inherit; font-size:12px;
+    background: #ffd93d; color: #111; border: 1px solid #a07d00; border-bottom-width: 3px;
+    border-radius: 6px; padding: 2px 10px; font-family: inherit; font-size: 15px; font-weight: 800;
+    white-space: nowrap;
   }
   #overlayBtns { margin-top: 10px; display:flex; gap:10px; }
   button.epic {
@@ -78,7 +87,7 @@
 </head>
 <body>
 <h1>⚡ EPIC PLATFORMER ADVENTURE ⚡</h1>
-<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Collect <b>ALL coins</b> to unlock the exit • <b>5 EPIC worlds</b>!</div>
+<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Collect <b>ALL coins</b> to unlock the exit • <b>5 EPIC worlds</b>! <span style="color:#555">(v3 coin-gate)</span></div>
 <div id="hud">
   <div class="pill">⭐ Score: <span id="hScore">0</span></div>
   <div class="pill">🪙 <span id="hCoins">0/0</span></div>
@@ -101,8 +110,11 @@
   <button id="tRight">▶</button>
 </div>
 <p id="controls-help">
-  <kbd>◀</kbd><kbd>▶</kbd> / <kbd>A</kbd><kbd>D</kbd> move &nbsp;•&nbsp; <kbd>Space</kbd>/<kbd>↑</kbd>/<kbd>W</kbd> jump (press again mid-air = <b>double jump</b>)
-  &nbsp;•&nbsp; <kbd>Shift</kbd>/<kbd>K</kbd> = ⚡ <b>DASH</b> &nbsp;•&nbsp; <kbd>M</kbd> mute &nbsp;•&nbsp; <kbd>R</kbd> restart level &nbsp;•&nbsp; Stomp enemies from above!
+  <span class="how">🎮 HOW TO MOVE:</span><br>
+  <kbd>◀</kbd> <kbd>▶</kbd> or <kbd>A</kbd> <kbd>D</kbd> to move
+  &nbsp;•&nbsp; <kbd>SPACE</kbd> / <kbd>↑</kbd> / <kbd>W</kbd> to jump <b>(press again mid-air = double jump)</b>
+  <br>
+  <kbd>SHIFT</kbd> / <kbd>K</kbd> = ⚡ <b>DASH</b> &nbsp;•&nbsp; <kbd>M</kbd> mute &nbsp;•&nbsp; <kbd>R</kbd> restart level &nbsp;•&nbsp; Stomp enemies from above!
 </p>
 <a class="back" href="./index.html">← back to all games</a>
 
@@ -338,6 +350,7 @@ function gameOver(){ state='gameover'; SFX.lose(); saveBest(); }
 function victory(){ state='victory'; SFX.win(); confetti(); saveBest(); }
 function saveBest(){ if(score>best){best=score; localStorage.setItem('epicPlatformerBest',String(best));} elBest.textContent=best; }
 function nextLevel() {
+  if (!allCoinsCollected()) return; // defense-in-depth: never advance with coins left
   const timeBonus = Math.max(0, Math.round((60 - levelTime) * 5));
   score += 100 + timeBonus;
   floaters.push({x:goal.x-40,y:goal.y-40,text:`+${100+timeBonus} TIME BONUS!`,life:90,color:'#ffd93d'});
@@ -761,7 +774,7 @@ function draw(){
   if(shake>0) ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
   const L=LEVELS[levelIndex];
   drawBackground(L);
-  if(state==='menu'){ drawCenter('⚡ EPIC PLATFORMER ⚡','Collect ALL coins to unlock the exit • Stomp baddies • Dash with SHIFT\nConquer all 5 worlds!','#ffd93d'); ctx.restore(); return; }
+  if(state==='menu'){ drawCenter('⚡ EPIC PLATFORMER ⚡','◀ ▶ / A D to MOVE  •  SPACE to JUMP  •  SHIFT to DASH\nCollect ALL coins to unlock the exit!','#ffd93d'); ctx.restore(); return; }
   drawPlatforms(L);
   drawPickups();
   drawGoal();
