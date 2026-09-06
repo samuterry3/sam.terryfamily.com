@@ -99,7 +99,7 @@
 </head>
 <body>
 <h1>⚡ EPIC PLATFORMER ADVENTURE ⚡</h1>
-<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Collect <b>ALL coins</b> to unlock the exit • Endless rounds, hearts refill every <b>5 levels</b>! <span style="color:#555">(v4 endless)</span></div>
+<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Collect <b>ALL coins</b> to unlock the exit • Endless rounds, hearts refill every <b>5 levels</b>, checkpoint every <b>2 rounds</b>! <span style="color:#555">(v5 checkpoint)</span></div>
 <div id="hud">
   <div class="pill">⭐ Score: <span id="hScore">0</span></div>
   <div class="pill">🪙 <span id="hCoins">0/0</span></div>
@@ -116,6 +116,7 @@
 </div>
 <div id="overlayBtns">
   <button class="epic" id="startBtn">▶ PLAY</button>
+  <button class="ghost" id="checkpointBtn" style="display:none">↩ Checkpoint</button>
   <button class="ghost" id="muteBtn">🔊 Sound: ON</button>
 </div>
 <div id="touch">
@@ -152,6 +153,7 @@ const elRound = document.getElementById('hRound');
 const elTime = document.getElementById('hTime');
 const elBest = document.getElementById('hBest');
 const startBtn = document.getElementById('startBtn');
+const cpBtn = document.getElementById('checkpointBtn');
 const muteBtn = document.getElementById('muteBtn');
 
 // ---------- AUDIO (synth, no assets) ----------
@@ -198,6 +200,7 @@ window.addEventListener('keydown', e => {
   ac();
   if (e.key==='m'||e.key==='M') muteBtn.click();
   if (e.key==='r'||e.key==='R') { if (state==='play') respawn(true); }
+  if ((e.key==='c'||e.key==='C') && state==='gameover') resumeFromCheckpoint();
   if ((e.key==='Enter'||e.key===' ') && (state==='menu'||state==='gameover')) startGame();
   if ((e.key==='ArrowUp'||e.key===' '||e.key==='w'||e.key==='W') && state==='play') tryJump();
   if ((e.key==='Shift'||e.key==='k'||e.key==='K') && state==='play') tryDash();
@@ -325,6 +328,15 @@ let levelIndex = 0, round = 1, score = 0, lives = 3, coinsGot = 0, coinsTotal = 
 let levelTime = 0, totalTime = 0, bannerT = 0, shake = 0, time = 0;
 let best = parseInt(localStorage.getItem('epicPlatformerBest')||'0',10) || 0;
 elBest.textContent = best;
+// checkpoint every 2 rounds (survives refresh via localStorage)
+let checkpoint = {round:1, score:0};
+try { const cp = JSON.parse(localStorage.getItem('epicPlatformerCheckpoint')||'null'); if (cp && (cp.round|0)>0) checkpoint = {round:cp.round|0, score:Math.max(0,cp.score|0)}; } catch(e){}
+function saveCheckpoint(){ try{ localStorage.setItem('epicPlatformerCheckpoint', JSON.stringify(checkpoint)); }catch(e){} }
+function refreshCheckpointBtn(){
+  const show = (state==='gameover' && checkpoint.round>1);
+  cpBtn.style.display = show ? '' : 'none';
+  if (show) cpBtn.textContent = `↩ Checkpoint: Round ${checkpoint.round}`;
+}
 
 const GRAV = 0.65, MAXFALL = 14;
 const player = { x:40,y:400,w:28,h:36,vx:0,vy:0,face:1,onGround:false,coyote:0,buffer:0,
@@ -357,8 +369,18 @@ function loadLevel(i, keepScore=true) {
 
 function startGame() {
   levelIndex=0; round=1; score=0; lives=3; coinsGot=0; totalTime=0;
+  checkpoint={round:1,score:0}; saveCheckpoint();
   loadLevel(0); state='play'; startBtn.textContent='↻ RESTART';
+  refreshCheckpointBtn();
 }
+function resumeFromCheckpoint(){
+  if (checkpoint.round<=1) return;
+  round=checkpoint.round; score=checkpoint.score; lives=3; coinsGot=0; totalTime=0;
+  loadLevel(0); state='play'; startBtn.textContent='↻ RESTART';
+  refreshCheckpointBtn(); SFX.unlock();
+  floater(player.x-60,player.y-40,`🚩 Resumed at Round ${round}!`,'#ffd93d');
+}
+cpBtn.addEventListener('click', ()=>{ ac(); SFX.click(); resumeFromCheckpoint(); });
 function respawn(loseLife=false) {
   if (loseLife) { lives--; SFX.hurt(); shake=14; burst(player.x+14,player.y+18,'#ff416c',26,5); }
   if (lives<=0) { gameOver(); return; }
@@ -366,7 +388,7 @@ function respawn(loseLife=false) {
   player.x=L.start.x; player.y=L.start.y; player.vx=0; player.vy=0; player.inv=90; player.dashCD=0;
   updateHUD();
 }
-function gameOver(){ state='gameover'; SFX.lose(); saveBest(); }
+function gameOver(){ state='gameover'; SFX.lose(); saveBest(); refreshCheckpointBtn(); }
 function saveBest(){ if(score>best){best=score; localStorage.setItem('epicPlatformerBest',String(best));} elBest.textContent=best; }
 function nextLevel() {
   if (!allCoinsCollected()) return; // defense-in-depth: never advance with coins left
@@ -382,6 +404,8 @@ function nextLevel() {
     setTimeout(()=>{ if(state==='roundclear'){ loadLevel(0); state='play';
       SFX.heart(); burst(player.x+14,player.y+10,'#ff6b9d',30,6);
       floater(player.x-60,player.y-40,`💚 ROUND ${cleared} CLEAR! Hearts regenerated!`,'#ff6b9d');
+      if (round % 2 === 1) { checkpoint={round:round, score:score}; saveCheckpoint();
+        floater(player.x-60,player.y-70,'🚩 Checkpoint saved!','#ffd93d'); }
     } },2200);
   }
   else { levelIndex++; state='levelclear'; bannerT=110; setTimeout(()=>{ if(state==='levelclear'){ loadLevel(levelIndex); state='play'; } },1400); }
@@ -832,7 +856,10 @@ function draw(){
     ctx.fillText('Hearts regenerated — Round '+round+' awaits!',W/2,H/2+145);
     ctx.restore(); ctx.textAlign='left';
   }
-  if(state==='gameover') drawCenter('💀 GAME OVER',`Score: ${score}   •   Rounds: ${round}   •   Best: ${best}\nTip: stomp enemies, don't touch spikes!`,'#ff6b6b');
+  if(state==='gameover'){
+    const cp = checkpoint.round>1 ? `\n🚩 Checkpoint: Round ${checkpoint.round} — press C to resume` : '';
+    drawCenter('💀 GAME OVER',`Score: ${score}   •   Rounds: ${round}   •   Best: ${best}\nTip: stomp enemies, don't touch spikes!${cp}`,'#ff6b6b');
+  }
   ctx.restore();
 }
 
