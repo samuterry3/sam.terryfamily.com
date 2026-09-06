@@ -119,6 +119,7 @@
   <button class="ghost" id="checkpointBtn" style="display:none">↩ Checkpoint</button>
   <button class="ghost" id="skipBtn">⏭ Skip</button>
   <button class="ghost" id="muteBtn">🔊 Sound: ON</button>
+  <button class="ghost" id="voiceBtn">🐄 Test voice</button>
 </div>
 <div id="touch">
   <button id="tLeft">◀</button>
@@ -157,6 +158,7 @@ const startBtn = document.getElementById('startBtn');
 const cpBtn = document.getElementById('checkpointBtn');
 const skipBtn = document.getElementById('skipBtn');
 const muteBtn = document.getElementById('muteBtn');
+const voiceBtn = document.getElementById('voiceBtn');
 
 // ---------- AUDIO (synth, no assets) ----------
 let audioCtx = null, muted = false;
@@ -195,19 +197,26 @@ const SFX = {
 muteBtn.addEventListener('click', ()=>{ muted=!muted; muteBtn.textContent = muted?'🔇 Sound: OFF':'🔊 Sound: ON'; if(!muted) SFX.click(); });
 
 // spoken congratulations (Web Speech API, no files needed)
-function speakMoo(){
-  if (muted) return;
+function speakLine(text){
   try {
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance('Great job! Moo moo moo moo!');
+      const synth = window.speechSynthesis;
+      try { synth.getVoices(); } catch(e){}
+      synth.cancel();
+      try { synth.resume(); } catch(e){}
+      const u = new SpeechSynthesisUtterance(text);
       u.rate = 0.95; u.pitch = 0.6; u.volume = 1;
-      window.speechSynthesis.speak(u);
-      return;
+      synth.speak(u);
+      return true;
     }
   } catch(e){}
-  SFX.moo(); // fallback moo sound if speech isn't available
+  return false;
 }
+function speakMoo(){
+  if (muted) return;
+  if (!speakLine('Great job! Moo moo moo moo!')) SFX.moo(); // fallback moo sound if speech isn't available
+}
+voiceBtn.addEventListener('click', ()=>{ ac(); speakLine('Moo!'); });
 
 // ---------- INPUT ----------
 const keys = {};
@@ -238,7 +247,7 @@ function bindTouch(id, key) {
   b.addEventListener('mousedown', on); b.addEventListener('mouseup', off);
 }
 bindTouch('tLeft','left'); bindTouch('tRight','right'); bindTouch('tJump','jump'); bindTouch('tDash','dash');
-startBtn.addEventListener('click', ()=>{ ac(); SFX.click(); startGame(); });
+startBtn.addEventListener('click', ()=>{ ac(); try{ if('speechSynthesis' in window) window.speechSynthesis.getVoices(); }catch(e){} SFX.click(); startGame(); });
 
 // ---------- LEVELS (5 epic worlds) ----------
 // platform: {x,y,w,h, mv:'x'|'y'|null, range, speed}
