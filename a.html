@@ -235,7 +235,7 @@ const LEVELS = [
     ],
     coins: [{x:170,y:365},{x:435,y:295},{x:695,y:225},{x:170,y:155},{x:770,y:365}],
     gems: [{x:830,y:150}],
-    hearts: [], springs: [{x:330,y:465,w:60,h:25}],
+    hearts: [{x:830,y:360}], springs: [{x:330,y:465,w:60,h:25}],
     spikes: [], enemies: [{x:500,y:458,w:30,h:32,kind:'walker',range:180,speed:1.4}],
     goal: {x:880,y:420}, start:{x:40,y:400}
   },
@@ -268,7 +268,7 @@ const LEVELS = [
     ],
     coins: [{x:260,y:395},{x:430,y:345},{x:600,y:295},{x:250,y:215},{x:700,y:145}],
     gems: [{x:470,y:160},{x:470,y:425}],
-    hearts: [],
+    hearts: [{x:800,y:440}],
     springs: [{x:60,y:465,w:60,h:25}],
     spikes: [{x:200,y:472,w:560,h:18}],
     enemies: [
@@ -324,7 +324,7 @@ const LEVELS = [
 
 // ---------- STATE ----------
 let state = 'menu'; // menu | play | dead | levelclear | roundclear | gameover
-let levelIndex = 0, round = 1, score = 0, lives = 3, coinsGot = 0, coinsTotal = 0;
+let levelIndex = 0, round = 1, score = 0, lives = 5, coinsGot = 0, coinsTotal = 0;
 let levelTime = 0, totalTime = 0, bannerT = 0, shake = 0, time = 0;
 let best = parseInt(localStorage.getItem('epicPlatformerBest')||'0',10) || 0;
 elBest.textContent = best;
@@ -357,7 +357,7 @@ function loadLevel(i, keepScore=true) {
   hearts = L.hearts.map(c=>({...c, w:24,h:24, got:false}));
   spikes = L.spikes.map(s=>({...s}));
   springs = L.springs.map(s=>({...s, anim:0}));
-  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*(1+(round-1)*0.12), spd:1+(round-1)*0.12}));
+  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*0.8*(1+(round-1)*0.06), spd:0.85*(1+(round-1)*0.06)}));
   goal = {...L.goal, w:44, h:64};
   player.x = L.start.x; player.y = L.start.y; player.vx=0; player.vy=0;
   player.inv=0; player.dashCD=0; player.dashT=0; player.jumps=0;
@@ -368,14 +368,14 @@ function loadLevel(i, keepScore=true) {
 }
 
 function startGame() {
-  levelIndex=0; round=1; score=0; lives=3; coinsGot=0; totalTime=0;
+  levelIndex=0; round=1; score=0; lives=5; coinsGot=0; totalTime=0;
   checkpoint={round:1,score:0}; saveCheckpoint();
   loadLevel(0); state='play'; startBtn.textContent='↻ RESTART';
   refreshCheckpointBtn();
 }
 function resumeFromCheckpoint(){
   if (checkpoint.round<=1) return;
-  round=checkpoint.round; score=checkpoint.score; lives=3; coinsGot=0; totalTime=0;
+  round=checkpoint.round; score=checkpoint.score; lives=5; coinsGot=0; totalTime=0;
   loadLevel(0); state='play'; startBtn.textContent='↻ RESTART';
   refreshCheckpointBtn(); SFX.unlock();
   floater(player.x-60,player.y-40,`🚩 Resumed at Round ${round}!`,'#ffd93d');
@@ -385,7 +385,7 @@ function respawn(loseLife=false) {
   if (loseLife) { lives--; SFX.hurt(); shake=14; burst(player.x+14,player.y+18,'#ff416c',26,5); }
   if (lives<=0) { gameOver(); return; }
   const L = LEVELS[levelIndex];
-  player.x=L.start.x; player.y=L.start.y; player.vx=0; player.vy=0; player.inv=90; player.dashCD=0;
+  player.x=L.start.x; player.y=L.start.y; player.vx=0; player.vy=0; player.inv=150; player.dashCD=0;
   updateHUD();
 }
 function gameOver(){ state='gameover'; SFX.lose(); saveBest(); refreshCheckpointBtn(); }
@@ -415,10 +415,10 @@ function nextLevel() {
 // ---------- ABILITIES ----------
 function tryJump() {
   if (player.coyote>0 || player.onGround) {
-    player.vy = -13.5; player.onGround=false; player.coyote=0; player.jumps=1;
+    player.vy = -14; player.onGround=false; player.coyote=0; player.jumps=1;
     player.squash=-8; SFX.jump(); dust(player.x+14, player.y+36, 8);
   } else if (player.jumps<2) {
-    player.vy = -12; player.jumps=2; player.squash=-8;
+    player.vy = -12.5; player.jumps=2; player.squash=-8;
     SFX.djump(); ringBurst(player.x+14, player.y+18, '#00f0ff');
   }
 }
@@ -426,7 +426,7 @@ function tryDash() {
   if (player.dashCD>0) return;
   const dir = (keys['ArrowLeft']||keys['a']?'left':keys['ArrowRight']||keys['d']?'right':null);
   player.face = dir==='left'?-1:dir==='right'?1:player.face;
-  player.dashT=12; player.dashCD=55; player.vy=Math.min(player.vy,0);
+  player.dashT=12; player.dashCD=35; player.vy=Math.min(player.vy,0);
   SFX.dash(); shake=Math.max(shake,5);
   for(let i=0;i<12;i++) trail.push({x:player.x,y:player.y,life:20,face:player.face});
 }
@@ -488,7 +488,7 @@ function update() {
   platforms.forEach(p=>{
     if (player.x+player.w> p.x+4 && player.x < p.x+p.w-4) {
       if (player.vy>=0 && prevBottom<=p.y+12 && player.y+player.h>=p.y && player.y+player.h<=p.y+28) {
-        player.y=p.y-player.h; player.vy=0; player.onGround=true; player.jumps=0; player.coyote=9; riding=p;
+        player.y=p.y-player.h; player.vy=0; player.onGround=true; player.jumps=0; player.coyote=12; riding=p;
       } else if (player.vy<0 && player.y<=p.y+p.h && player.y>=p.y+p.h-18 && player.x+player.w>p.x && player.x<p.x+p.w) {
         player.y=p.y+p.h; player.vy=0.5; // bonk
       }
@@ -504,7 +504,7 @@ function update() {
     if (riding.mv==='y') { const ny = riding.oy + Math.sin((time+1)*riding.speed*0.02+riding.ph)*riding.range; player.y += ny-riding.y; }
     if (Math.abs(player.vy)<0.1 && Math.random()<0.06) dust(player.x+14,player.y+player.h,1);
   }
-  if (player.onGround) player.coyote=9; else if (player.coyote>0) player.coyote--;
+  if (player.onGround) player.coyote=12; else if (player.coyote>0) player.coyote--;
   if (player.y>H+60) { respawn(true); if(state==='play') loadLevelKeepItems(); return; }
 
   // springs
@@ -521,7 +521,7 @@ function update() {
   // spikes
   if (player.inv<=0) {
     for (const s of spikes) {
-      const hit={x:s.x+4,y:s.y+8,w:s.w-8,h:s.h-8};
+      const hit={x:s.x+8,y:s.y+12,w:s.w-16,h:s.h-12};
       if (rectsOverlap(player,hit)) { respawn(true); if(state==='play') loadLevelKeepItems(); return; }
     }
   }
@@ -570,7 +570,7 @@ function update() {
 }
 
 // falling keeps collected items, just resets position
-function loadLevelKeepItems(){ const L=LEVELS[levelIndex]; player.x=L.start.x; player.y=L.start.y; player.vx=0; player.vy=0; player.inv=90; }
+function loadLevelKeepItems(){ const L=LEVELS[levelIndex]; player.x=L.start.x; player.y=L.start.y; player.vx=0; player.vy=0; player.inv=150; }
 
 function updateHUD(){
   elScore.textContent=score; elLives.textContent='❤'.repeat(Math.max(0,Math.min(5,lives)))+` (${lives})`;
@@ -769,7 +769,7 @@ function drawPlayer(){
   ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(10+(player.face*4),18.5,2,0,7); ctx.arc(21+(player.face*4),18.5,2,0,7); ctx.fill();
   // dash cooldown indicator
   if(player.dashCD>0){ ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(4,30,20,3);
-    ctx.fillStyle='#00f0ff'; ctx.fillRect(4,30,20*(1-player.dashCD/55),3); }
+    ctx.fillStyle='#00f0ff'; ctx.fillRect(4,30,20*(1-player.dashCD/35),3); }
   ctx.restore();
   ctx.globalAlpha=1;
   // double-jump indicator
