@@ -194,6 +194,21 @@ const SFX = {
 };
 muteBtn.addEventListener('click', ()=>{ muted=!muted; muteBtn.textContent = muted?'🔇 Sound: OFF':'🔊 Sound: ON'; if(!muted) SFX.click(); });
 
+// spoken congratulations (Web Speech API, no files needed)
+function speakMoo(){
+  if (muted) return;
+  try {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance('Great job! Moo moo moo moo!');
+      u.rate = 0.95; u.pitch = 0.6; u.volume = 1;
+      window.speechSynthesis.speak(u);
+      return;
+    }
+  } catch(e){}
+  SFX.moo(); // fallback moo sound if speech isn't available
+}
+
 // ---------- INPUT ----------
 const keys = {};
 window.addEventListener('keydown', e => {
@@ -403,7 +418,7 @@ function nextLevel(skipped=false) {
   score += skipped ? 0 : (100 + timeBonus);
   floaters.push({x:goal.x-40,y:goal.y-40,text: skipped ? 'Skipped!' : `+${100+timeBonus} TIME BONUS!`,life:90,color:'#ffd93d'});
   SFX.win();
-  SFX.moo(); mooT = 140; // a cow congratulates you on every level clear!
+  speakMoo(); mooT = 140; // a cow congratulates you on every level clear!
   if (levelIndex+1 >= LEVELS.length) {
     // every 5 levels = 1 round: loop endlessly, hearts regenerate
     const cleared = round;
