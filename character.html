@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Character Creator</title>
+    <title>Paint Character Blast</title>
     <style>
         body {
             margin: 0;
@@ -183,7 +183,7 @@
 <body>
     <div class="container">
         <div class="preview">
-            <h2>Character Preview</h2>
+            <h2>Paint Character Blast</h2>
             <div class="character-name">
                 <input type="text" id="characterName" placeholder="Enter character name" style="width: 80%; text-align: center;">
             </div>
@@ -322,6 +322,7 @@
 
                 <div class="control-group">
                     <label>Brush Color</label>
+                    <button id="changeColorButton" style="width:100%;font-size:18px;padding:12px;background:linear-gradient(90deg,#ff0000,#ff8800,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff);margin-bottom:10px;">🔄 Change Color: <span id="currentColorName">Black</span></button>
                     <input type="color" id="paintColor" value="#000000">
                     <div class="color-swatches" id="colorSwatches"></div>
                 </div>
@@ -617,6 +618,22 @@
         const brushDot = document.getElementById('brushDot');
         const brushToolBtn = document.getElementById('brushTool');
         const eraserToolBtn = document.getElementById('eraserTool');
+        const changeColorButton = document.getElementById('changeColorButton');
+        const currentColorName = document.getElementById('currentColorName');
+        const funColors = [
+            { hex: '#000000', name: 'Black' },
+            { hex: '#ff0000', name: 'Red' },
+            { hex: '#ff8800', name: 'Orange' },
+            { hex: '#ffff00', name: 'Yellow' },
+            { hex: '#00ff00', name: 'Green' },
+            { hex: '#00ffff', name: 'Aqua' },
+            { hex: '#0000ff', name: 'Blue' },
+            { hex: '#8800ff', name: 'Purple' },
+            { hex: '#ff00ff', name: 'Pink' },
+            { hex: '#8B4513', name: 'Brown' },
+            { hex: '#ffffff', name: 'White' }
+        ];
+        let funColorIndex = 0;
 
         const presetColors = ['#000000','#ffffff','#ff0000','#ff8800','#ffff00','#00ff00','#00ffff','#0000ff','#8800ff','#ff00ff','#8B4513','#808080'];
         const swatchContainer = document.getElementById('colorSwatches');
@@ -631,15 +648,40 @@
                 brushDot.style.background = c;
                 swatchContainer.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
                 d.classList.add('selected');
+                const match = funColors.find(f => f.hex.toLowerCase() === c.toLowerCase());
+                if (match) {
+                    funColorIndex = funColors.indexOf(match);
+                    currentColorName.textContent = match.name;
+                } else {
+                    currentColorName.textContent = c;
+                }
                 setTool('brush');
             });
             swatchContainer.appendChild(d);
         });
 
         paintColorInput.addEventListener('input', (e) => {
-            paintColor = e.target.value;
-            brushDot.style.background = paintColor;
+            setPaintColor(e.target.value, e.target.value);
+        });
+
+        // ---- Big Change Color button: tap to cycle through fun colors ----
+        function setPaintColor(hex, name) {
+            paintColor = hex;
+            try { paintColorInput.value = hex; } catch (e) {}
+            brushDot.style.background = hex;
+            if (currentColorName && name) currentColorName.textContent = name;
+            // highlight matching swatch
+            if (swatchContainer) {
+                swatchContainer.querySelectorAll('.swatch').forEach(s => {
+                    s.classList.toggle('selected', s.title.toLowerCase() === hex.toLowerCase());
+                });
+            }
             setTool('brush');
+        }
+        changeColorButton.addEventListener('click', () => {
+            funColorIndex = (funColorIndex + 1) % funColors.length;
+            const c = funColors[funColorIndex];
+            setPaintColor(c.hex, c.name);
         });
 
         brushSizeInput.addEventListener('input', (e) => {
