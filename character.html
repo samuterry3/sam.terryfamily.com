@@ -115,6 +115,69 @@
         .tab-content.active {
             display: block;
         }
+        .canvas-stack {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            margin: 20px auto;
+        }
+        .canvas-stack canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            margin: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #paintCanvas {
+            cursor: crosshair;
+            touch-action: none;
+        }
+        #paintCanvas:not(.painting-enabled) {
+            pointer-events: none;
+        }
+        .paint-tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+        .paint-tools button.active-tool {
+            background: #2196F3;
+        }
+        .paint-tools input[type="range"] {
+            width: 100%;
+        }
+        .brush-preview {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+        }
+        .color-swatches {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .swatch {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .swatch.selected {
+            border-color: white;
+        }
+        @media (max-width: 900px) {
+            .container { flex-direction: column; }
+            .canvas-stack { width: 100%; max-width: 400px; }
+        }
     </style>
 </head>
 <body>
@@ -124,8 +187,12 @@
             <div class="character-name">
                 <input type="text" id="characterName" placeholder="Enter character name" style="width: 80%; text-align: center;">
             </div>
-            <canvas id="characterCanvas" width="400" height="400"></canvas>
+            <div class="canvas-stack">
+                <canvas id="characterCanvas" width="400" height="400"></canvas>
+                <canvas id="paintCanvas" width="400" height="400"></canvas>
+            </div>
             <div>
+                <button id="paintToggleButton">🎨 Paint: ON</button>
                 <button id="saveButton">Save Character</button>
                 <button id="randomButton">Randomize</button>
             </div>
@@ -160,6 +227,7 @@
             <h2>Customize Your Character</h2>
             <div class="tabs">
                 <div class="tab active" data-tab="appearance">Appearance</div>
+                <div class="tab" data-tab="paint">🎨 Paint Your Own</div>
                 <div class="tab" data-tab="personality">Personality</div>
                 <div class="tab" data-tab="background">Background</div>
             </div>
@@ -242,6 +310,40 @@
                 </div>
             </div>
 
+            <div class="tab-content" id="paint">
+                <div class="control-group">
+                    <label>🎨 Paint directly on your character!</label>
+                    <p style="color:#ccc; font-size:14px; margin:0 0 10px 0;">Draw on the preview with your mouse or finger. Your painting stays on top even when you change clothes, hair, etc.</p>
+                    <div class="paint-tools">
+                        <button id="brushTool" class="active-tool">🖌️ Brush</button>
+                        <button id="eraserTool">🧽 Eraser</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Brush Color</label>
+                    <input type="color" id="paintColor" value="#000000">
+                    <div class="color-swatches" id="colorSwatches"></div>
+                </div>
+
+                <div class="control-group">
+                    <label>Brush Size: <span id="brushSizeLabel">8</span>px</label>
+                    <input type="range" id="brushSize" min="1" max="50" value="8">
+                    <div class="brush-preview">
+                        <div id="brushDot" style="width:8px;height:8px;background:black;border-radius:50%;"></div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Paint Actions</label>
+                    <div class="paint-tools">
+                        <button id="undoPaintButton">↩️ Undo</button>
+                        <button id="clearPaintButton">🗑️ Clear Painting</button>
+                        <button id="togglePaintButton">👁️ Hide / Show Painting</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="tab-content" id="personality">
                 <div class="control-group">
                     <label>Personality Type</label>
@@ -289,6 +391,100 @@
     <script>
         const canvas = document.getElementById('characterCanvas');
         const ctx = canvas.getContext('2d');
+        const paintCanvas = document.getElementById('paintCanvas');
+        const pctx = paintCanvas.getContext('2d');
+
+        // ---- Paint-your-own state ----
+        let paintColor = '#000000';
+        let brushSize = 8;
+        let paintTool = 'brush'; // 'brush' | 'eraser'
+        let isPainting = false;
+        let lastX = 0, lastY = 0;
+        let paintEnabled = true;
+        let paintVisible = true;
+        let paintHistory = [];
+        const MAX_HISTORY = 20;
+
+        function savePaintState() {
+            try {
+                paintHistory.push(pctx.getImageData(0, 0, paintCanvas.width, paintCanvas.height));
+                if (paintHistory.length > MAX_HISTORY) paintHistory.shift();
+            } catch (e) { /* ignore if tainted - won't happen locally */ }
+        }
+        function restorePaintState() {
+            const prev = paintHistory.pop();
+            pctx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+            if (prev) pctx.putImageData(prev, 0, 0);
+        }
+        // Init with blank state so first Undo clears to blank
+        savePaintState();
+
+        function getPaintPos(e) {
+            const rect = paintCanvas.getBoundingClientRect();
+            const scaleX = paintCanvas.width / rect.width;
+            const scaleY = paintCanvas.height / rect.height;
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function startPaint(e) {
+            if (!paintEnabled || !paintVisible) return;
+            e.preventDefault();
+            savePaintState();
+            isPainting = true;
+            const pos = getPaintPos(e);
+            lastX = pos.x; lastY = pos.y;
+            // dot for single click
+            pctx.globalCompositeOperation = paintTool === 'eraser' ? 'destination-out' : 'source-over';
+            pctx.fillStyle = paintColor;
+            pctx.strokeStyle = paintColor;
+            pctx.lineWidth = brushSize;
+            pctx.lineCap = 'round';
+            pctx.lineJoin = 'round';
+            pctx.beginPath();
+            pctx.arc(lastX, lastY, brushSize / 2, 0, Math.PI * 2);
+            pctx.fill();
+        }
+
+        function paintMove(e) {
+            if (!isPainting) return;
+            e.preventDefault();
+            const pos = getPaintPos(e);
+            pctx.globalCompositeOperation = paintTool === 'eraser' ? 'destination-out' : 'source-over';
+            pctx.strokeStyle = paintColor;
+            pctx.lineWidth = brushSize;
+            pctx.lineCap = 'round';
+            pctx.lineJoin = 'round';
+            pctx.beginPath();
+            pctx.moveTo(lastX, lastY);
+            pctx.lineTo(pos.x, pos.y);
+            pctx.stroke();
+            lastX = pos.x; lastY = pos.y;
+        }
+
+        function endPaint() {
+            isPainting = false;
+        }
+
+        paintCanvas.classList.add('painting-enabled');
+        paintCanvas.addEventListener('mousedown', startPaint);
+        paintCanvas.addEventListener('mousemove', paintMove);
+        window.addEventListener('mouseup', endPaint);
+        paintCanvas.addEventListener('mouseleave', endPaint);
+        // touch support
+        paintCanvas.addEventListener('touchstart', startPaint, { passive: false });
+        paintCanvas.addEventListener('touchmove', paintMove, { passive: false });
+        paintCanvas.addEventListener('touchend', endPaint);
         
         // Character state
         let character = {
@@ -398,13 +594,92 @@
             });
         }
 
-        // Save button
+        // Save button - merges base character + your painting
         document.getElementById('saveButton').addEventListener('click', () => {
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = canvas.width;
+            exportCanvas.height = canvas.height;
+            const ectx = exportCanvas.getContext('2d');
+            ectx.fillStyle = 'white';
+            ectx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+            ectx.drawImage(canvas, 0, 0);
+            if (paintVisible) ectx.drawImage(paintCanvas, 0, 0);
             const link = document.createElement('a');
             link.download = `${character.name || 'character'}.png`;
-            link.href = canvas.toDataURL();
+            link.href = exportCanvas.toDataURL();
             link.click();
         });
+
+        // ---- Paint UI wiring ----
+        const paintColorInput = document.getElementById('paintColor');
+        const brushSizeInput = document.getElementById('brushSize');
+        const brushSizeLabel = document.getElementById('brushSizeLabel');
+        const brushDot = document.getElementById('brushDot');
+        const brushToolBtn = document.getElementById('brushTool');
+        const eraserToolBtn = document.getElementById('eraserTool');
+
+        const presetColors = ['#000000','#ffffff','#ff0000','#ff8800','#ffff00','#00ff00','#00ffff','#0000ff','#8800ff','#ff00ff','#8B4513','#808080'];
+        const swatchContainer = document.getElementById('colorSwatches');
+        presetColors.forEach(c => {
+            const d = document.createElement('div');
+            d.className = 'swatch' + (c === paintColor ? ' selected' : '');
+            d.style.background = c;
+            d.title = c;
+            d.addEventListener('click', () => {
+                paintColor = c;
+                paintColorInput.value = c;
+                brushDot.style.background = c;
+                swatchContainer.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+                d.classList.add('selected');
+                setTool('brush');
+            });
+            swatchContainer.appendChild(d);
+        });
+
+        paintColorInput.addEventListener('input', (e) => {
+            paintColor = e.target.value;
+            brushDot.style.background = paintColor;
+            setTool('brush');
+        });
+
+        brushSizeInput.addEventListener('input', (e) => {
+            brushSize = parseInt(e.target.value, 10);
+            brushSizeLabel.textContent = brushSize;
+            brushDot.style.width = Math.min(50, brushSize) + 'px';
+            brushDot.style.height = Math.min(50, brushSize) + 'px';
+        });
+
+        function setTool(tool) {
+            paintTool = tool;
+            brushToolBtn.classList.toggle('active-tool', tool === 'brush');
+            eraserToolBtn.classList.toggle('active-tool', tool === 'eraser');
+            paintCanvas.style.cursor = tool === 'eraser' ? 'cell' : 'crosshair';
+        }
+        brushToolBtn.addEventListener('click', () => setTool('brush'));
+        eraserToolBtn.addEventListener('click', () => setTool('eraser'));
+
+        document.getElementById('undoPaintButton').addEventListener('click', restorePaintState);
+        document.getElementById('clearPaintButton').addEventListener('click', () => {
+            savePaintState();
+            pctx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+        });
+        function setPaintVisible(v) {
+            paintVisible = v;
+            paintCanvas.style.display = v ? 'block' : 'none';
+            document.getElementById('togglePaintButton').textContent = v ? '👁️ Hide Painting' : '👁️ Show Painting';
+        }
+        document.getElementById('togglePaintButton').addEventListener('click', () => setPaintVisible(!paintVisible));
+
+        const paintToggleButton = document.getElementById('paintToggleButton');
+        function setPaintEnabled(v) {
+            paintEnabled = v;
+            paintCanvas.classList.toggle('painting-enabled', v && paintVisible);
+            paintCanvas.style.pointerEvents = (v && paintVisible) ? 'auto' : 'none';
+            paintToggleButton.textContent = v ? '🎨 Paint: ON' : '🎨 Paint: OFF';
+        }
+        paintToggleButton.addEventListener('click', () => setPaintEnabled(!paintEnabled));
+        // Clicking the Paint tab auto-enables painting
+        document.querySelector('[data-tab="paint"]').addEventListener('click', () => setPaintEnabled(true));
 
         function drawCharacter() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
