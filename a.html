@@ -357,7 +357,7 @@ const LEVELS = [
 
 // ---------- STATE ----------
 let state = 'menu'; // menu | play | dead | levelclear | roundclear | gameover
-let levelIndex = 0, round = 1, score = 0, lives = 5, coinsGot = 0, coinsTotal = 0;
+let levelIndex = 0, round = 1, score = 0, lives = 5, coinsGot = 0, coinsTotal = 0, skipsLeft = 1;
 let levelTime = 0, totalTime = 0, bannerT = 0, mooT = 0, shake = 0, time = 0;
 let best = parseInt(localStorage.getItem('epicPlatformerBest')||'0',10) || 0;
 elBest.textContent = best;
@@ -390,7 +390,7 @@ function loadLevel(i, keepScore=true) {
   hearts = L.hearts.map(c=>({...c, w:24,h:24, got:false}));
   spikes = L.spikes.map(s=>({...s}));
   springs = L.springs.map(s=>({...s, anim:0}));
-  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*0.65*(1+(round-1)*0.05), spd:0.7*(1+(round-1)*0.05)}));
+  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*0.65*(1+(round-1)*0.05)*(1+i*0.08), spd:0.7*(1+(round-1)*0.05)*(1+i*0.08)}));
   goal = {...L.goal, w:44, h:64};
   player.x = L.start.x; player.y = L.start.y; player.vx=0; player.vy=0;
   player.inv=0; player.dashCD=0; player.dashT=0; player.jumps=0;
@@ -403,6 +403,7 @@ function loadLevel(i, keepScore=true) {
 function startGame() {
   levelIndex=0; round=1; score=0; lives=5; coinsGot=0; totalTime=0;
   checkpoint={round:1,score:0}; saveCheckpoint();
+  skipsLeft = 1; refreshSkipBtn();
   mooT = 0;
   loadLevel(0); state='play'; startBtn.textContent='↻ RESTART';
   refreshCheckpointBtn();
@@ -411,11 +412,16 @@ function resumeFromCheckpoint(){
   if (checkpoint.round<=1) return;
   round=checkpoint.round; score=checkpoint.score; lives=5; coinsGot=0; totalTime=0;
   loadLevel(0); state='play'; startBtn.textContent='↻ RESTART';
-  refreshCheckpointBtn(); SFX.unlock();
+  refreshCheckpointBtn(); refreshSkipBtn(); SFX.unlock();
   floater(player.x-60,player.y-40,`🚩 Resumed at Round ${round}!`,'#ffd93d');
 }
 cpBtn.addEventListener('click', ()=>{ ac(); SFX.click(); resumeFromCheckpoint(); });
-function skipLevel(){ if(state!=='play') return; SFX.click(); nextLevel(true); }
+function skipLevel(){ if(state!=='play') return; if(skipsLeft<=0){ SFX.locked(); floater(player.x-20,player.y-30,'No skips left!','#ff6b6b'); return; } skipsLeft--; refreshSkipBtn(); SFX.click(); nextLevel(true); }
+function refreshSkipBtn(){
+  skipBtn.textContent = skipsLeft>0 ? '⏭ Skip (1 left)' : '⏭ No skips left';
+  skipBtn.disabled = skipsLeft<=0;
+  skipBtn.style.opacity = skipsLeft>0 ? '' : '0.5';
+}
 skipBtn.addEventListener('click', ()=>{ ac(); skipLevel(); });
 function respawn(loseLife=false) {
   if (loseLife) { lives--; SFX.hurt(); shake=14; burst(player.x+14,player.y+18,'#ff416c',26,5); }
