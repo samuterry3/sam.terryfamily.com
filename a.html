@@ -273,7 +273,7 @@ const LEVELS = [
     gems: [{x:470,y:160},{x:470,y:425}],
     hearts: [{x:800,y:440}],
     springs: [{x:60,y:465,w:60,h:25}],
-    spikes: [{x:200,y:472,w:560,h:18}],
+    spikes: [{x:360,y:472,w:240,h:18}],
     enemies: [
       {x:430,y:168,w:28,h:28,kind:'flyer',range:100,speed:2.6},
       {x:580,y:298,w:30,h:32,kind:'walker',range:90,speed:2.0}
@@ -293,7 +293,7 @@ const LEVELS = [
     gems: [{x:460,y:200}],
     hearts: [{x:570,y:385}],
     springs: [{x:540,y:395,w:60,h:25},{x:200,y:465,w:60,h:25}],
-    spikes: [{x:320,y:472,w:220,h:18}],
+    spikes: [{x:370,y:472,w:120,h:18}],
     enemies: [
       {x:430,y:208,w:28,h:28,kind:'flyer',range:120,speed:3.0},
       {x:690,y:308,w:30,h:32,kind:'walker',range:90,speed:2.6}
@@ -315,7 +315,7 @@ const LEVELS = [
     gems: [{x:480,y:90},{x:880,y:350}],
     hearts: [{x:60,y:440}],
     springs: [{x:810,y:465,w:60,h:25}],
-    spikes: [{x:150,y:474,w:660,h:16}],
+    spikes: [{x:320,y:474,w:320,h:16}],
     enemies: [
       {x:190,y:168,w:28,h:28,kind:'flyer',range:90,speed:3.2},
       {x:430,y:138,w:28,h:28,kind:'flyer',range:90,speed:3.4},
@@ -360,7 +360,7 @@ function loadLevel(i, keepScore=true) {
   hearts = L.hearts.map(c=>({...c, w:24,h:24, got:false}));
   spikes = L.spikes.map(s=>({...s}));
   springs = L.springs.map(s=>({...s, anim:0}));
-  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*0.8*(1+(round-1)*0.06), spd:0.85*(1+(round-1)*0.06)}));
+  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*0.65*(1+(round-1)*0.05), spd:0.7*(1+(round-1)*0.05)}));
   goal = {...L.goal, w:44, h:64};
   player.x = L.start.x; player.y = L.start.y; player.vx=0; player.vy=0;
   player.inv=0; player.dashCD=0; player.dashT=0; player.jumps=0;
@@ -540,14 +540,15 @@ function update() {
   enemies.forEach(e=>{
     if(!e.alive||player.inv>0) return;
     if(rectsOverlap(player,e)){
-      const stomp = player.vy>1 && (player.y+player.h - e.y) < 22;
+      const stomp = player.vy>1 && (player.y+player.h - e.y) < 30;
       if(stomp){ e.alive=false; player.vy=-11; player.jumps=1; score+=25; SFX.stomp(); shake=Math.max(shake,6);
         burst(e.x+15,e.y+15,'#ffd93d',20,5); floater(e.x-6,e.y-18,'+25 STOMP!','#ffd93d'); }
       else { respawn(true); if(state==='play') loadLevelKeepItems(); return; }
     }
   });
 
-  // pickups
+  // pickups (coins drift toward you when close — coin magnet)
+  coins.forEach(c=>{ if(c.got) return; const dx=(player.x+14)-(c.x+11), dy=(player.y+18)-(c.y+11); const d=Math.hypot(dx,dy); if(d<70&&d>1){ c.x+=dx/d*3.5; c.y+=dy/d*3.5; } });
   coins.forEach(c=>{ if(!c.got&&rectsOverlap(player,{x:c.x,y:c.y,w:22,h:22})){ c.got=true; score+=10; coinsGot++; SFX.coin(); burst(c.x+11,c.y+11,'#ffd93d',14,4); floater(c.x-6,c.y-16,'+10','#ffd93d');
     if (allCoinsCollected()) { SFX.unlock(); floater(player.x-20,player.y-30,'EXIT OPEN! 🎉','#6bcf7f'); burst(goal.x+22,goal.y+32,'#6bcf7f',30,6); }
     else { const left = coinsRemaining(); if (left<=2) floater(c.x-14,c.y-30,`${left} coin${left===1?'':'s'} left!`,'#ffd93d'); }
