@@ -189,7 +189,7 @@
   </div>
 
   <div class="help">
-    <div><kbd>WASD</kbd> / <kbd>←↑↓→</kbd> move &nbsp;•&nbsp; <kbd>H</kbd> hint &nbsp;•&nbsp; <kbd>N</kbd> new &nbsp;•&nbsp; <kbd>P</kbd> pause &nbsp;•&nbsp; swipe on mobile</div>
+    <div><kbd>WASD</kbd> / <kbd>←↑↓→</kbd> slide to next junction &nbsp;•&nbsp; <kbd>H</kbd> hint &nbsp;•&nbsp; <kbd>N</kbd> new &nbsp;•&nbsp; <kbd>P</kbd> pause &nbsp;•&nbsp; swipe on mobile</div>
     <div>Collect <b>ALL</b> <b style="color:var(--gold)">● orbs</b> (gold 150 • aqua 200 • pink 300) to <b>unlock the portal 🔒</b>. Avoid the <b style="color:var(--red)">rainbow hunters</b>!</div>
   </div>
   <div class="footer"><a href="./index.html">← back to games</a> • progress auto-saves locally • made epic with canvas + WebAudio</div>
@@ -422,13 +422,37 @@ function canMove(x,y,dx,dy){
   if(dy===-1&&c.walls.t)return false;
   return true;
 }
+// slide-to-junction movement: one press glides to the next place you can turn
+function slidePath(sx,sy,dx,dy){
+  const steps=[];
+  let x=sx,y=sy,mx=dx,my=dy;
+  while(canMove(x,y,mx,my)){
+    x+=mx; y+=my;
+    steps.push([mx,my]);
+    if(x===W-1&&y===H-1) break; // stop on the portal
+    if(coins.some(c=>!c.taken&&c.x===x&&c.y===y)) break; // stop to grab orb
+    let opts=0; // open ways out, not counting where we came from
+    for(const [ox,oy] of [[0,-1],[1,0],[0,1],[-1,0]]){
+      if(ox===-mx&&oy===-my) continue;
+      if(canMove(x,y,ox,oy)) opts++;
+    }
+    if(opts!==1) break; // junction, dead end, or corridor end — a place to turn
+  }
+  return steps;
+}
 function tryMove(dx,dy){
   if(paused||won||gameOver||isSolving) return;
-  if(Math.hypot(player.tx-player.px,player.ty-player.py)>0.01){ // moving: queue (max 2)
-    if(moveQueue.length<2) moveQueue.push([dx,dy]);
-    return;
-  }
-  doStep(dx,dy);
+  const moving=Math.hypot(player.tx-player.px,player.ty-player.py)>0.01;
+  moveQueue.length=0; // fresh press cancels any in-progress slide
+  const path=slidePath(player.cx,player.cy,dx,dy);
+  if(!path.length){ if(!moving) doBump(dx,dy); return; }
+  if(!moving){ const [sx,sy]=path.shift(); doStep(sx,sy); }
+  for(const s of path.slice(0,64)) moveQueue.push(s);
+}
+function doBump(dx,dy){
+  if(dx!==0)player.face=dx>0?1:-1;
+  shakeT=Math.max(shakeT,.12); sfx.bump();
+  burst(player.cx+.5,player.cy+.5,'#ff3b5c',4,1.2);
 }
 function doStep(dx,dy){
   if(dx!==0)player.face=dx>0?1:-1;
@@ -439,8 +463,7 @@ function doStep(dx,dy){
     checkCoin(); updateHUD();
     if(player.cx===W-1&&player.cy===H-1) onReachExit();
   } else {
-    shakeT=Math.max(shakeT,.12); sfx.bump();
-    burst(player.cx+.5,player.cy+.5,'#ff3b5c',4,1.2);
+    doBump(dx,dy);
   }
 }
 function checkCoin(){
