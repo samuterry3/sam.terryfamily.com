@@ -99,12 +99,13 @@
 </head>
 <body>
 <h1>⚡ EPIC PLATFORMER ADVENTURE ⚡</h1>
-<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Collect <b>ALL coins</b> to unlock the exit • <b>5 EPIC worlds</b>! <span style="color:#555">(v3 coin-gate)</span></div>
+<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Collect <b>ALL coins</b> to unlock the exit • Endless rounds, hearts refill every <b>5 levels</b>! <span style="color:#555">(v4 endless)</span></div>
 <div id="hud">
   <div class="pill">⭐ Score: <span id="hScore">0</span></div>
   <div class="pill">🪙 <span id="hCoins">0/0</span></div>
   <div class="pill">❤️ <span id="hLives">3</span></div>
   <div class="pill">🌍 Level <span id="hLevel">1/5</span></div>
+  <div class="pill">🔁 Round <span id="hRound">1</span></div>
   <div class="pill">⏱️ <span id="hTime">0.0s</span></div>
   <div class="pill">🏆 Best: <span id="hBest">0</span></div>
 </div>
@@ -147,6 +148,7 @@ const elScore = document.getElementById('hScore');
 const elCoins = document.getElementById('hCoins');
 const elLives = document.getElementById('hLives');
 const elLevel = document.getElementById('hLevel');
+const elRound = document.getElementById('hRound');
 const elTime = document.getElementById('hTime');
 const elBest = document.getElementById('hBest');
 const startBtn = document.getElementById('startBtn');
@@ -196,7 +198,7 @@ window.addEventListener('keydown', e => {
   ac();
   if (e.key==='m'||e.key==='M') muteBtn.click();
   if (e.key==='r'||e.key==='R') { if (state==='play') respawn(true); }
-  if ((e.key==='Enter'||e.key===' ') && (state==='menu'||state==='gameover'||state==='victory')) startGame();
+  if ((e.key==='Enter'||e.key===' ') && (state==='menu'||state==='gameover')) startGame();
   if ((e.key==='ArrowUp'||e.key===' '||e.key==='w'||e.key==='W') && state==='play') tryJump();
   if ((e.key==='Shift'||e.key==='k'||e.key==='K') && state==='play') tryDash();
 });
@@ -318,8 +320,8 @@ const LEVELS = [
 ];
 
 // ---------- STATE ----------
-let state = 'menu'; // menu | play | dead | levelclear | gameover | victory
-let levelIndex = 0, score = 0, lives = 3, coinsGot = 0, coinsTotal = 0;
+let state = 'menu'; // menu | play | dead | levelclear | roundclear | gameover
+let levelIndex = 0, round = 1, score = 0, lives = 3, coinsGot = 0, coinsTotal = 0;
 let levelTime = 0, totalTime = 0, bannerT = 0, shake = 0, time = 0;
 let best = parseInt(localStorage.getItem('epicPlatformerBest')||'0',10) || 0;
 elBest.textContent = best;
@@ -343,7 +345,7 @@ function loadLevel(i, keepScore=true) {
   hearts = L.hearts.map(c=>({...c, w:24,h:24, got:false}));
   spikes = L.spikes.map(s=>({...s}));
   springs = L.springs.map(s=>({...s, anim:0}));
-  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)}));
+  enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*(1+(round-1)*0.12), spd:1+(round-1)*0.12}));
   goal = {...L.goal, w:44, h:64};
   player.x = L.start.x; player.y = L.start.y; player.vx=0; player.vy=0;
   player.inv=0; player.dashCD=0; player.dashT=0; player.jumps=0;
@@ -354,7 +356,7 @@ function loadLevel(i, keepScore=true) {
 }
 
 function startGame() {
-  levelIndex=0; score=0; lives=3; coinsGot=0; totalTime=0;
+  levelIndex=0; round=1; score=0; lives=3; coinsGot=0; totalTime=0;
   loadLevel(0); state='play'; startBtn.textContent='↻ RESTART';
 }
 function respawn(loseLife=false) {
@@ -365,7 +367,6 @@ function respawn(loseLife=false) {
   updateHUD();
 }
 function gameOver(){ state='gameover'; SFX.lose(); saveBest(); }
-function victory(){ state='victory'; SFX.win(); confetti(); saveBest(); }
 function saveBest(){ if(score>best){best=score; localStorage.setItem('epicPlatformerBest',String(best));} elBest.textContent=best; }
 function nextLevel() {
   if (!allCoinsCollected()) return; // defense-in-depth: never advance with coins left
@@ -373,7 +374,16 @@ function nextLevel() {
   score += 100 + timeBonus;
   floaters.push({x:goal.x-40,y:goal.y-40,text:`+${100+timeBonus} TIME BONUS!`,life:90,color:'#ffd93d'});
   SFX.win();
-  if (levelIndex+1 >= LEVELS.length) { victory(); }
+  if (levelIndex+1 >= LEVELS.length) {
+    // every 5 levels = 1 round: loop endlessly, hearts regenerate
+    const cleared = round;
+    round++;
+    state='roundclear'; bannerT=170; confetti();
+    setTimeout(()=>{ if(state==='roundclear'){ loadLevel(0); state='play';
+      SFX.heart(); burst(player.x+14,player.y+10,'#ff6b9d',30,6);
+      floater(player.x-60,player.y-40,`💚 ROUND ${cleared} CLEAR! Hearts regenerated!`,'#ff6b9d');
+    } },2200);
+  }
   else { levelIndex++; state='levelclear'; bannerT=110; setTimeout(()=>{ if(state==='levelclear'){ loadLevel(levelIndex); state='play'; } },1400); }
   updateHUD();
 }
@@ -496,7 +506,7 @@ function update() {
   enemies.forEach(e=>{
     if(!e.alive) return;
     if(e.kind==='walker'){ e.x+=e.vx; if(e.x<e.ox-e.range||e.x>e.ox+e.range) e.vx*=-1; }
-    else { e.ph+=0.06; e.x=e.ox+Math.sin(e.ph*0.7)*e.range; e.y=e.oy+Math.sin(e.ph*1.7)*22; }
+    else { e.ph+=0.06*(e.spd||1); e.x=e.ox+Math.sin(e.ph*0.7)*e.range; e.y=e.oy+Math.sin(e.ph*1.7)*22; }
   });
   enemies.forEach(e=>{
     if(!e.alive||player.inv>0) return;
@@ -541,6 +551,7 @@ function loadLevelKeepItems(){ const L=LEVELS[levelIndex]; player.x=L.start.x; p
 function updateHUD(){
   elScore.textContent=score; elLives.textContent='❤'.repeat(Math.max(0,Math.min(5,lives)))+` (${lives})`;
   elLevel.textContent=`${levelIndex+1}/5`;
+  elRound.textContent=round;
   const got = coins.filter(c=>c.got).length;
   elCoins.textContent=`${got}/${coinsTotal}`;
   elTime.textContent=levelTime.toFixed(1)+'s';
@@ -792,7 +803,7 @@ function draw(){
   if(shake>0) ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
   const L=LEVELS[levelIndex];
   drawBackground(L);
-  if(state==='menu'){ drawCenter('⚡ EPIC PLATFORMER ⚡','◀ ▶ / A D to MOVE  •  SPACE to JUMP  •  SHIFT to DASH\nCollect ALL coins to unlock the exit!','#ffd93d'); ctx.restore(); return; }
+  if(state==='menu'){ drawCenter('⚡ EPIC PLATFORMER ⚡','◀ ▶ / A D to MOVE  •  SPACE to JUMP  •  SHIFT to DASH\nCollect ALL coins! Hearts refill every 5 levels — how far can you go?','#ffd93d'); ctx.restore(); return; }
   drawPlatforms(L);
   drawPickups();
   drawGoal();
@@ -806,14 +817,22 @@ function draw(){
     ctx.textAlign='center';
     ctx.save(); ctx.shadowColor=L.accent; ctx.shadowBlur=25;
     ctx.fillStyle='#fff'; ctx.font='800 44px Arial';
-    ctx.fillText(`LEVEL ${levelIndex+1}`,W/2,150);
+    ctx.fillText(round>1?`ROUND ${round} • LEVEL ${levelIndex+1}`:`LEVEL ${levelIndex+1}`,W/2,150);
     ctx.fillStyle=L.accent; ctx.font='bold 22px Arial';
     ctx.fillText(L.name+' — '+L.sub,W/2,185);
     ctx.restore(); ctx.textAlign='left'; ctx.globalAlpha=1;
   }
   if(state==='levelclear') { /* banner handles transition */ }
-  if(state==='gameover') drawCenter('💀 GAME OVER',`Score: ${score}   •   Best: ${best}\nTip: stomp enemies, don't touch spikes!`,'#ff6b6b');
-  if(state==='victory') drawCenter('🏆 YOU ARE LEGENDARY!',`Final Score: ${score}   •   Time: ${totalTime.toFixed(1)}s   •   Best: ${best}\nYou conquered all 5 worlds!`,'#ffd93d');
+  if(state==='roundclear'){
+    ctx.textAlign='center';
+    ctx.save(); ctx.shadowColor='#ff6b9d'; ctx.shadowBlur=25;
+    ctx.fillStyle='#ff6b9d'; ctx.font='800 40px Arial';
+    ctx.fillText(`💚 ROUND ${round-1} CLEAR!`,W/2,H/2+110);
+    ctx.fillStyle='#fff'; ctx.font='bold 20px Arial';
+    ctx.fillText('Hearts regenerated — Round '+round+' awaits!',W/2,H/2+145);
+    ctx.restore(); ctx.textAlign='left';
+  }
+  if(state==='gameover') drawCenter('💀 GAME OVER',`Score: ${score}   •   Rounds: ${round}   •   Best: ${best}\nTip: stomp enemies, don't touch spikes!`,'#ff6b6b');
   ctx.restore();
 }
 
