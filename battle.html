@@ -258,7 +258,7 @@ function spawnBot(){
     alive:true,fireCD:1+Math.random(),speed:(120+Math.random()*50)*diff,wander:Math.random()*Math.PI*2,
     dmg:Math.round(10+Math.min(14,killsTotal*0.5)),hitT:0,ph:Math.random()*6});
 }
-function targetBotCount(){ return Math.min(8, 4 + Math.floor(killsTotal/4)); }
+function targetBotCount(){ return 1; } // just ONE bot at a time — a new (tougher) one spawns after each kill
 
 function startGame(tp){
   twoPlayer=tp; state='play';
