@@ -6,6 +6,9 @@
     <title>Sam Terry's Website</title>
     <link rel="icon" type="image/png" href="logo.png">
     <style>
+        html, body {
+            background: #04040c;
+        }
         body {
             margin: 0;
             padding: 0;
@@ -15,12 +18,65 @@
             align-items: center;
             justify-content: center;
             font-family: 'Arial', sans-serif;
-            background: url('background.png') no-repeat center center fixed;
-            background-size: cover;
             color: white;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Tons-of-LED-lights animated background - pure CSS, always works */
+        #led-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background: #04040c;
+            overflow: hidden;
+        }
+        .led-layer {
+            position: absolute;
+            inset: -100px;
+            /* fast rainbow flowing left */
+            background: linear-gradient(90deg, #ff0000, #ff8800, #ffff00, #00ff00, #00ffff, #0088ff, #aa00ff, #ff00cc, #ff0000);
+            background-size: 600px 100%;
+            animation: slideLeft 2.5s linear infinite;
+            /* cut the rainbow into tons of little round bulbs */
+            -webkit-mask-image: radial-gradient(circle 4px at 16px 16px, black 3.5px, transparent 5px);
+            -webkit-mask-size: 32px 32px;
+            mask-image: radial-gradient(circle 4px at 16px 16px, black 3.5px, transparent 5px);
+            mask-size: 32px 32px;
+        }
+        .led-layer.layer2 {
+            -webkit-mask-position: 16px 16px;
+            mask-position: 16px 16px;
+            animation-duration: 1.6s;
+            animation-direction: reverse;
+            opacity: 0.75;
+            filter: brightness(1.4) blur(0.4px);
+        }
+        /* soft glow behind the dots */
+        .led-layer.layer-glow {
+            -webkit-mask-image: radial-gradient(circle 8px at 16px 16px, black 4px, transparent 9px);
+            mask-image: radial-gradient(circle 8px at 16px 16px, black 4px, transparent 9px);
+            filter: blur(3px);
+            opacity: 0.55;
+            animation-duration: 2.5s;
+        }
+        @keyframes slideLeft {
+            from { background-position: 0 0; }
+            to { background-position: -600px 0; }
+        }
+        /* dark vignette so text stays readable over bright LEDs */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background: radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(0,0,0,0.55) 100%);
         }
 
         .container {
+            position: relative;
+            z-index: 1;
             text-align: center;
             padding: 2rem;
             max-width: 800px;
@@ -32,7 +88,7 @@
             font-size: 3rem;
             margin-bottom: 2rem;
             color: #ffffff;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            text-shadow: 0 0 18px rgba(255,255,255,0.6), 0 0 45px rgba(0,240,255,0.5), 0 2px 4px rgba(0,0,0,0.8);
         }
 
         .games-grid {
@@ -43,15 +99,19 @@
         }
 
         .game-card {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(10, 10, 28, 0.72);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 15px;
             padding: 1.5rem;
             transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.5);
         }
 
         .game-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6), 0 0 25px rgba(0,240,255,0.25);
         }
 
         .game-button {
@@ -93,6 +153,7 @@
     </style>
 </head>
 <body>
+    <div id="led-bg" aria-hidden="true"><div class="led-layer layer-glow"></div><div class="led-layer"></div><div class="led-layer layer2"></div></div>
     <div class="container">
         <h1>Welcome to My Games</h1>
         <div class="games-grid">
