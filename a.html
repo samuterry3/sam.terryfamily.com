@@ -187,6 +187,7 @@ const SFX = {
   win(){ [523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'triangle',0.15),i*110)); },
   lose(){ [400,350,300,200].forEach((f,i)=>setTimeout(()=>tone(f,0.22,'sawtooth',0.14),i*140)); },
   heart(){ tone(600,0.15,'sine',0.14,300); },
+  moo(){ [0,1,2,3].forEach(i=>setTimeout(()=>{ tone(150,0.32,'sawtooth',0.16,-50); setTimeout(()=>tone(120,0.25,'sawtooth',0.14,-30),160); },i*380)); },
   locked(){ tone(160,0.15,'square',0.14); setTimeout(()=>tone(120,0.2,'square',0.14),120); },
   unlock(){ [440,660,880].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.14),i*80)); },
   click(){ tone(700,0.06,'square',0.1); }
@@ -328,7 +329,7 @@ const LEVELS = [
 // ---------- STATE ----------
 let state = 'menu'; // menu | play | dead | levelclear | roundclear | gameover
 let levelIndex = 0, round = 1, score = 0, lives = 5, coinsGot = 0, coinsTotal = 0;
-let levelTime = 0, totalTime = 0, bannerT = 0, shake = 0, time = 0;
+let levelTime = 0, totalTime = 0, bannerT = 0, mooT = 0, shake = 0, time = 0;
 let best = parseInt(localStorage.getItem('epicPlatformerBest')||'0',10) || 0;
 elBest.textContent = best;
 // checkpoint every 2 rounds (survives refresh via localStorage)
@@ -373,6 +374,7 @@ function loadLevel(i, keepScore=true) {
 function startGame() {
   levelIndex=0; round=1; score=0; lives=5; coinsGot=0; totalTime=0;
   checkpoint={round:1,score:0}; saveCheckpoint();
+  mooT = 0;
   loadLevel(0); state='play'; startBtn.textContent='↻ RESTART';
   refreshCheckpointBtn();
 }
@@ -401,6 +403,7 @@ function nextLevel(skipped=false) {
   score += skipped ? 0 : (100 + timeBonus);
   floaters.push({x:goal.x-40,y:goal.y-40,text: skipped ? 'Skipped!' : `+${100+timeBonus} TIME BONUS!`,life:90,color:'#ffd93d'});
   SFX.win();
+  SFX.moo(); mooT = 140; // a cow congratulates you on every level clear!
   if (levelIndex+1 >= LEVELS.length) {
     // every 5 levels = 1 round: loop endlessly, hearts regenerate
     const cleared = round;
@@ -451,6 +454,7 @@ function update() {
   floaters = floaters.filter(f=>{ f.y-=1; f.life--; return f.life>0; });
   trail = trail.filter(t=>t.life-- >0);
   if (bannerT>0) bannerT--;
+  if (mooT>0) mooT--;
   if (shake>0) shake*=0.88; if(shake<0.4) shake=0;
 
   if (state!=='play') return;
@@ -829,6 +833,24 @@ function drawHUDCanvas(){
   ctx.font='13px Arial'; ctx.fillText(player.dashCD<=0?'⚡ DASH READY':'⚡ charging…',W-160,30);
 }
 
+function drawMoo(){
+  if (mooT<=0) return;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, mooT/25);
+  ctx.textAlign='center';
+  // congrats cow mascot
+  ctx.font='64px Arial';
+  ctx.fillText('🐄', W/2, 262);
+  // speech bubble
+  const bw=470, bh=58, bx=W/2-bw/2, by=272;
+  ctx.fillStyle='rgba(255,255,255,.95)'; roundRect(bx,by,bw,bh,16); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(W/2-18,by); ctx.lineTo(W/2,by-16); ctx.lineTo(W/2+18,by); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#222'; ctx.font='bold 22px Arial';
+  ctx.fillText('Great job! Moo moo moo moo!', W/2, by+38);
+  ctx.restore();
+  ctx.textAlign='left';
+}
+
 function drawCenter(text, sub, color='#fff'){
   ctx.fillStyle='rgba(0,0,0,.62)'; ctx.fillRect(0,0,W,H);
   ctx.textAlign='center';
@@ -869,6 +891,7 @@ function draw(){
     ctx.fillText(L.name+' — '+L.sub,W/2,185);
     ctx.restore(); ctx.textAlign='left'; ctx.globalAlpha=1;
   }
+  drawMoo();
   if(state==='levelclear') { /* banner handles transition */ }
   if(state==='roundclear'){
     ctx.textAlign='center';
