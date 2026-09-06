@@ -377,6 +377,7 @@ const player = { x:40,y:400,w:28,h:36,vx:0,vy:0,face:1,onGround:false,coyote:0,b
   jumps:0, dashCD:0, dashT:0, inv:0, squash:0, deadT:0 };
 let platforms=[], coins=[], gems=[], hearts=[], spikes=[], springs=[], enemies=[], goal=null;
 let isBossLevel=false, boss=null, bossDefeated=false, bossName='GRUMPY BULL';
+let minionWave=0;
 let curStart={x:40,y:400};
 let particles=[], floaters=[], trail=[];
 
@@ -395,7 +396,7 @@ function loadLevel(i, keepScore=true) {
   springs = L.springs.map(s=>({...s, anim:0}));
   enemies = L.enemies.map(e=>({...e, ox:e.x, oy:e.y, alive:true, ph:Math.random()*6, vx:e.speed*(Math.random()<0.5?-1:1)*0.65*(1+(round-1)*0.05)*(1+i*0.08), spd:0.7*(1+(round-1)*0.05)*(1+i*0.08)}));
   goal = {...L.goal, w:44, h:64};
-  isBossLevel = false; boss = null;
+  isBossLevel = false; boss = null; minionWave = 0;
   curStart = {...L.start};
   player.x = L.start.x; player.y = L.start.y; player.vx=0; player.vy=0;
   player.inv=0; player.dashCD=0; player.dashT=0; player.jumps=0;
@@ -405,16 +406,26 @@ function loadLevel(i, keepScore=true) {
   updateHUD();
 }
 
+function spawnMinions(n){
+  const spots = n===2 ? [250, 660] : [180, 380, 580, 760];
+  enemies = [];
+  spots.forEach((sx,k)=>{
+    enemies.push({x:sx, y:490-32, w:30, h:32, kind:'walker', ox:sx, range:55, speed:1.5, vx:(k%2?1:-1)*1.5, alive:true, ph:0});
+  });
+}
+
 function loadBossLevel(){
   isBossLevel = true;
   bossDefeated = false;
   const names = ['GRUMPY BULL','GRUMPIER BULL','FURIOUS BULL','MEGA BULL','ULTRA BULL'];
   bossName = names[Math.min(round-1, names.length-1)] + (round>names.length ? ' '+round : '');
-  platforms = [{x:0,y:490,w:960,h:50},{x:120,y:380,w:180,h:18},{x:660,y:380,w:180,h:18}];
+  platforms = [{x:0,y:490,w:960,h:50}];
   coins = []; gems = []; hearts = []; spikes = []; springs = []; enemies = [];
   const hp = 4 + round;
-  boss = {x:W/2-45, y:490-90, w:90, h:90, hp:hp, maxhp:hp, dir:1,
+  boss = {x:W/2-55, y:490-110, w:110, h:110, hp:hp, maxhp:hp, dir:1,
     speed:1.4, cspeed:6.5, mode:'patrol', pt:2.5, wt:0, ct:0, rt:0, t:0, alive:true};
+  spawnMinions(2); minionWave = 1;
+  floater(boss.x-30, boss.y-50, '👹 Minions, attack!', '#ff6b6b');
   goal = {x:880, y:420, w:44, h:64};
   curStart = {x:40, y:400};
   player.x = curStart.x; player.y = curStart.y; player.vx=0; player.vy=0;
@@ -657,6 +668,14 @@ function update() {
         updateHUD();
       } else { respawn(true); if(state==='play') loadLevelKeepItems(); return; }
     }
+    // beat the first 2 minions and the boss summons 4 more!
+    if (minionWave===1 && enemies.every(e=>!e.alive)) {
+      minionWave = 2;
+      spawnMinions(4);
+      tone(150,0.4,'sawtooth',0.15,-80);
+      burst(b.x+b.w/2,b.y,'#b983ff',24,5);
+      floater(b.x-60,b.y-50,'👹 Boss summons 4 minions!','#b983ff');
+    }
   }
 
   // pickups (coins drift toward you when close — coin magnet)
@@ -872,33 +891,34 @@ function drawBoss(){
   ctx.save();
   if (warnFlash) ctx.globalAlpha=0.55;
   ctx.shadowColor='#ff2222'; ctx.shadowBlur=22;
-  // big bull body
+  // big bull body (drawn relative to boss size)
   ctx.fillStyle = b.mode==='rest' ? '#7a2bd8' : '#a02040';
-  roundRect(b.x,b.y,b.w,b.h,18); ctx.fill();
+  roundRect(b.x,b.y,b.w,b.h,20); ctx.fill();
   ctx.shadowBlur=0;
+  const X=(f)=>b.x+f*b.w, Y=(f)=>b.y+f*b.h;
   // spots
   ctx.fillStyle='rgba(0,0,0,.35)';
-  ctx.beginPath(); ctx.ellipse(b.x+25,b.y+30,12,9,0.3,0,7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(b.x+65,b.y+60,13,9,-0.3,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(X(0.28),Y(0.33),b.w*0.13,b.h*0.1,0.3,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(X(0.72),Y(0.67),b.w*0.14,b.h*0.1,-0.3,0,7); ctx.fill();
   // horns
   ctx.fillStyle='#f2e3b3';
-  ctx.beginPath(); ctx.moveTo(b.x+8,b.y+12); ctx.lineTo(b.x-8,b.y-14); ctx.lineTo(b.x+20,b.y+4); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(b.x+b.w-8,b.y+12); ctx.lineTo(b.x+b.w+8,b.y-14); ctx.lineTo(b.x+b.w-20,b.y+4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(X(0.09),Y(0.13)); ctx.lineTo(X(-0.07),Y(-0.13)); ctx.lineTo(X(0.22),Y(0.04)); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(X(0.91),Y(0.13)); ctx.lineTo(X(1.07),Y(-0.13)); ctx.lineTo(X(0.78),Y(0.04)); ctx.closePath(); ctx.fill();
   // angry eyes
   ctx.fillStyle='#fff';
-  ctx.beginPath(); ctx.arc(b.x+32,b.y+32,9,0,7); ctx.arc(b.x+58,b.y+32,9,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(X(0.36),Y(0.36),b.w*0.1,0,7); ctx.arc(X(0.64),Y(0.36),b.w*0.1,0,7); ctx.fill();
   ctx.fillStyle='#f00';
-  ctx.beginPath(); ctx.arc(b.x+32+(b.dir*3),b.y+33,4,0,7); ctx.arc(b.x+58+(b.dir*3),b.y+33,4,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(X(0.36)+b.dir*3,Y(0.37),b.w*0.045,0,7); ctx.arc(X(0.64)+b.dir*3,Y(0.37),b.w*0.045,0,7); ctx.fill();
   ctx.strokeStyle='#2a0a0a'; ctx.lineWidth=4; ctx.beginPath();
-  ctx.moveTo(b.x+20,b.y+18); ctx.lineTo(b.x+44,b.y+24); ctx.moveTo(b.x+70,b.y+18); ctx.lineTo(b.x+46,b.y+24); ctx.stroke();
+  ctx.moveTo(X(0.22),Y(0.2)); ctx.lineTo(X(0.49),Y(0.27)); ctx.moveTo(X(0.78),Y(0.2)); ctx.lineTo(X(0.51),Y(0.27)); ctx.stroke();
   // snout
-  ctx.fillStyle='#ff9eb5'; roundRect(b.x+25,b.y+52,40,22,10); ctx.fill();
+  ctx.fillStyle='#ff9eb5'; roundRect(X(0.28),Y(0.58),b.w*0.44,b.h*0.24,10); ctx.fill();
   ctx.fillStyle='#7a2b3a';
-  ctx.beginPath(); ctx.arc(b.x+37,b.y+63,4,0,7); ctx.arc(b.x+53,b.y+63,4,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(X(0.41),Y(0.7),b.w*0.045,0,7); ctx.arc(X(0.59),Y(0.7),b.w*0.045,0,7); ctx.fill();
   // stompy legs
   const stompAnim = Math.abs(Math.sin(b.t*8))*6;
   ctx.fillStyle='#3a0d18';
-  ctx.fillRect(b.x+12,b.y+b.h-4,18,4+stompAnim*0.3); ctx.fillRect(b.x+b.w-30,b.y+b.h-4,18,4+(6-stompAnim)*0.3);
+  ctx.fillRect(X(0.13),b.y+b.h-4,b.w*0.2,4+stompAnim*0.3); ctx.fillRect(X(0.67),b.y+b.h-4,b.w*0.2,4+(6-stompAnim)*0.3);
   ctx.restore();
   // HP bar above boss
   ctx.fillStyle='rgba(0,0,0,.5)'; roundRect(b.x,b.y-16,b.w,10,5); ctx.fill();
