@@ -78,7 +78,7 @@
 </head>
 <body>
 <h1>⚡ EPIC PLATFORMER ADVENTURE ⚡</h1>
-<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Grab gems • Survive <b>5 EPIC worlds</b>!</div>
+<div class="subtitle">Double-jump • <b>Dash</b> • Stomp enemies • Collect <b>ALL coins</b> to unlock the exit • <b>5 EPIC worlds</b>!</div>
 <div id="hud">
   <div class="pill">⭐ Score: <span id="hScore">0</span></div>
   <div class="pill">🪙 <span id="hCoins">0/0</span></div>
@@ -151,6 +151,8 @@ const SFX = {
   win(){ [523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'triangle',0.15),i*110)); },
   lose(){ [400,350,300,200].forEach((f,i)=>setTimeout(()=>tone(f,0.22,'sawtooth',0.14),i*140)); },
   heart(){ tone(600,0.15,'sine',0.14,300); },
+  locked(){ tone(160,0.15,'square',0.14); setTimeout(()=>tone(120,0.2,'square',0.14),120); },
+  unlock(){ [440,660,880].forEach((f,i)=>setTimeout(()=>tone(f,0.12,'triangle',0.14),i*80)); },
   click(){ tone(700,0.06,'square',0.1); }
 };
 muteBtn.addEventListener('click', ()=>{ muted=!muted; muteBtn.textContent = muted?'🔇 Sound: OFF':'🔊 Sound: ON'; if(!muted) SFX.click(); });
@@ -299,6 +301,9 @@ let platforms=[], coins=[], gems=[], hearts=[], spikes=[], springs=[], enemies=[
 let particles=[], floaters=[], trail=[];
 
 function rectsOverlap(a,b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+function coinsRemaining(){ return coins.filter(c=>!c.got).length; }
+function allCoinsCollected(){ return coins.length>0 && coins.every(c=>c.got); }
+let exitDeniedCD = 0;
 
 function loadLevel(i, keepScore=true) {
   const L = LEVELS[i];
@@ -313,6 +318,7 @@ function loadLevel(i, keepScore=true) {
   player.x = L.start.x; player.y = L.start.y; player.vx=0; player.vy=0;
   player.inv=0; player.dashCD=0; player.dashT=0; player.jumps=0;
   levelTime = 0; bannerT = 150; shake = 0;
+  exitDeniedCD = 0;
   coinsTotal = coins.length;
   updateHUD();
 }
@@ -472,12 +478,29 @@ function update() {
   });
 
   // pickups
-  coins.forEach(c=>{ if(!c.got&&rectsOverlap(player,{x:c.x,y:c.y,w:22,h:22})){ c.got=true; score+=10; coinsGot++; SFX.coin(); burst(c.x+11,c.y+11,'#ffd93d',14,4); floater(c.x-6,c.y-16,'+10','#ffd93d'); } });
+  coins.forEach(c=>{ if(!c.got&&rectsOverlap(player,{x:c.x,y:c.y,w:22,h:22})){ c.got=true; score+=10; coinsGot++; SFX.coin(); burst(c.x+11,c.y+11,'#ffd93d',14,4); floater(c.x-6,c.y-16,'+10','#ffd93d');
+    if (allCoinsCollected()) { SFX.unlock(); floater(player.x-20,player.y-30,'EXIT OPEN! 🎉','#6bcf7f'); burst(goal.x+22,goal.y+32,'#6bcf7f',30,6); }
+    else { const left = coinsRemaining(); if (left<=2) floater(c.x-14,c.y-30,`${left} coin${left===1?'':'s'} left!`,'#ffd93d'); }
+  } });
   gems.forEach(g=>{ if(!g.got&&rectsOverlap(player,{x:g.x,y:g.y,w:26,h:26})){ g.got=true; score+=50; SFX.gem(); burst(g.x+13,g.y+13,'#00f0ff',24,5); floater(g.x-8,g.y-20,'+50 GEM!','#00f0ff'); shake=Math.max(shake,3);} });
   hearts.forEach(h=>{ if(!h.got&&rectsOverlap(player,{x:h.x,y:h.y,w:24,h:24})){ h.got=true; lives=Math.min(5,lives+1); SFX.heart(); floater(h.x-10,h.y-20,'+1 LIFE!','#ff6b9d'); burst(h.x+12,h.y+12,'#ff6b9d',16,4);} });
 
-  // goal portal
-  if (goal && rectsOverlap(player,goal)) { nextLevel(); return; }
+  // goal portal — LOCKED until all coins collected
+  if (exitDeniedCD>0) exitDeniedCD--;
+  if (goal && rectsOverlap(player,goal)) {
+    if (allCoinsCollected()) { nextLevel(); return; }
+    else {
+      // bounce the player out so they can't slip through
+      if (player.x + player.w/2 < goal.x + goal.w/2) player.x = goal.x - player.w - 2;
+      else player.x = goal.x + goal.w + 2;
+      player.vx = 0;
+      if (exitDeniedCD<=0) {
+        exitDeniedCD = 60;
+        SFX.locked(); shake=Math.max(shake,3);
+        floater(goal.x-40,goal.y-30,`🔒 Need ${coinsRemaining()} more coin${coinsRemaining()===1?'':'s'}!`,'#ff6b6b');
+      }
+    }
+  }
   updateHUD();
 }
 
@@ -632,17 +655,28 @@ function drawEnemies(){
 
 function drawGoal(){
   if(!goal) return;
-  const p=1+Math.sin(time*0.08)*0.06;
+  const open = allCoinsCollected();
+  const p=1+Math.sin(time*(open?0.12:0.04))*0.06;
   ctx.save(); ctx.translate(goal.x+22,goal.y+32); ctx.scale(p,p);
   // portal
   for(let i=4;i>0;i--){
-    ctx.strokeStyle=`hsla(${(time*3+i*60)%360},100%,60%,${0.25+i*0.18})`;
+    ctx.strokeStyle = open
+      ? `hsla(${(time*3+i*60)%360},100%,60%,${0.25+i*0.18})`
+      : `rgba(120,120,140,${0.15+i*0.1})`;
     ctx.lineWidth=5;
     ctx.beginPath(); ctx.ellipse(0,0,14+i*6,24+i*6,0,0,7); ctx.stroke();
   }
-  ctx.fillStyle='rgba(20,0,60,.9)'; ctx.beginPath(); ctx.ellipse(0,0,13,23,0,0,7); ctx.fill();
-  ctx.fillStyle='#fff'; ctx.font='22px Arial'; ctx.textAlign='center'; ctx.fillText('🏁',0,-30);
-  ctx.fillStyle='#ffd93d'; ctx.font='bold 11px Arial'; ctx.fillText('GOAL',0,40);
+  ctx.fillStyle = open ? 'rgba(20,0,60,.9)' : 'rgba(30,30,40,.9)';
+  ctx.beginPath(); ctx.ellipse(0,0,13,23,0,0,7); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='22px Arial'; ctx.textAlign='center';
+  ctx.fillText(open?'🏁':'🔒',0,-30);
+  ctx.fillStyle = open ? '#6bcf7f' : '#ff6b6b'; ctx.font='bold 11px Arial';
+  ctx.fillText(open?'EXIT OPEN!':'LOCKED',0,40);
+  if(!open){
+    const left = coinsRemaining();
+    ctx.fillStyle='#ffd93d'; ctx.font='bold 12px Arial';
+    ctx.fillText(`🪙 ${left} left`,0,-44);
+  }
   ctx.restore();
 }
 
@@ -696,6 +730,11 @@ function drawHUDCanvas(){
   ctx.fillStyle='rgba(0,0,0,.45)'; roundRect(12,12,220,26,13); ctx.fill();
   ctx.fillStyle='#ffd93d'; ctx.font='bold 14px Arial';
   ctx.fillText(`Lv ${levelIndex+1}  ${LEVELS[levelIndex].name}`,22,30);
+  // coin / exit status
+  const left = coinsRemaining();
+  ctx.fillStyle='rgba(0,0,0,.45)'; roundRect(240,12,left===0?150:170,26,13); ctx.fill();
+  ctx.fillStyle = left===0 ? '#6bcf7f' : '#ffd93d'; ctx.font='bold 14px Arial';
+  ctx.fillText(left===0 ? '🪙 EXIT OPEN!' : `🪙 ${left} coin${left===1?'':'s'} to exit`,250,30);
   // dash ready icon
   ctx.fillStyle = player.dashCD<=0 ? '#00f0ff' : 'rgba(255,255,255,.25)';
   ctx.font='13px Arial'; ctx.fillText(player.dashCD<=0?'⚡ DASH READY':'⚡ charging…',W-160,30);
@@ -722,7 +761,7 @@ function draw(){
   if(shake>0) ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake);
   const L=LEVELS[levelIndex];
   drawBackground(L);
-  if(state==='menu'){ drawCenter('⚡ EPIC PLATFORMER ⚡','Collect coins • Stomp baddies • Dash with SHIFT\nConquer all 5 worlds!','#ffd93d'); ctx.restore(); return; }
+  if(state==='menu'){ drawCenter('⚡ EPIC PLATFORMER ⚡','Collect ALL coins to unlock the exit • Stomp baddies • Dash with SHIFT\nConquer all 5 worlds!','#ffd93d'); ctx.restore(); return; }
   drawPlatforms(L);
   drawPickups();
   drawGoal();
