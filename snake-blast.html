@@ -69,6 +69,12 @@
   #menu p, #dead p { color: #ccc; max-width: 620px; line-height: 1.6; }
   .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin: 0 2px; vertical-align: middle; }
   #legend { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; font-size: 12.5px; color: #ccc; margin-top: 6px; }
+  #skinRow, #sideSkinRow { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  .skinBtn { padding: 8px 14px; border-radius: 999px; border: 2px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07);
+    color: white; font-weight: 800; font-size: 13px; cursor: pointer; transition: transform .12s; }
+  .skinBtn:hover { transform: scale(1.06); background: rgba(255,255,255,.15); }
+  .skinBtn.sel { border-color: #4dff6a; background: rgba(77,255,106,.18); box-shadow: 0 0 12px rgba(77,255,106,.5); }
+  .skinSwatch { display: inline-block; width: 34px; height: 12px; border-radius: 999px; margin-right: 6px; vertical-align: middle; }
   @media (max-width: 800px){ #side{width:min(960px,96vw); flex:none;} #miniWrap{ transform: scale(.8); transform-origin: top right; } }
 </style>
 </head>
@@ -105,8 +111,10 @@
       <span><span class="dot" style="background:#ff5b5b"></span> ☠️ danger = death</span>
       <span><span class="dot" style="background:#00f0ff"></span> enemy snakes</span>
     </div>
+    <div style="margin-top:10px;font-weight:800;color:#4dff6a;letter-spacing:1px;">🎨 PICK YOUR SNAKE SKIN</div>
+    <div id="skinRow"></div>
     <button class="epic" id="btnPlay">▶ PLAY!</button>
-    <p style="font-size:13px"><kbd>Mouse</kbd> / <kbd>WASD</kbd> / <kbd>←↑↓→</kbd> steer • <kbd>SPACE</kbd> / <kbd>click</kbd> / <kbd>double-tap</kbd> boost • <kbd>P</kbd> pause • works on 📱 touch!</p>
+    <p style="font-size:13px"><kbd>Mouse</kbd> / <kbd>WASD</kbd> / <kbd>←↑↓→</kbd> steer • <kbd>SPACE</kbd> / <kbd>click</kbd> / <kbd>double-tap</kbd> boost • <kbd>1</kbd>–<kbd>6</kbd> change skin • <kbd>P</kbd> pause • works on 📱 touch!</p>
   </div>
   <div id="dead">
     <h2 id="deadTitle">💥 YOU BLASTED! 💥</h2>
@@ -136,6 +144,10 @@
   <hr style="border-color:#333">
   <span class="how">🗺️ MAP + LEADERBOARD</span>
   <div>Green arrow = you • dots = enemies • red = danger</div>
+  <hr style="border-color:#333">
+  <span class="how">🎨 SNAKE SKIN</span>
+  <div>Press <kbd>1</kbd>–<kbd>6</kbd> or tap below. Spawns stay yours!</div>
+  <div id="sideSkinRow"></div>
   <div id="board"><h3>🏆 BIGGEST SNAKES</h3><ol id="boardList"></ol></div>
 </aside>
 </div>
@@ -189,6 +201,43 @@ hBest.textContent = best;
 const BOT_NAMES = ['Venom','Slinky','Python','Noodle','Fang','Cobra','Wormy','Slyther','Zigzag','Boa','Snek','Anaconda'];
 const BOT_COLORS = ['#00f0ff','#ff4bd8','#ffd93d','#ff8c42','#b983ff','#ff5b5b','#4da6ff','#fffd7a','#7affd4','#ff9ff3'];
 const FOOD_COLORS = ['#ffd93d','#4dff6a','#00f0ff','#ff4bd8','#ff8c42','#ffffff','#7affd4'];
+// Player spawn point — the map builder keeps this whole area clear of danger!
+const SPAWN = { x: 1500, y: 1650, clearR: 480 };
+
+// ---------- SNAKE SKINS ----------
+const SKINS = [
+  {id:'classic', name:'🐍 Classic', swatch:'linear-gradient(90deg,#4dff6a,#4dff6a)'},
+  {id:'stripes', name:'🦓 Stripes', swatch:'repeating-linear-gradient(90deg,#4dff6a 0 5px,#0c6b35 5px 10px)'},
+  {id:'spots',   name:'🐆 Spots',   swatch:'radial-gradient(circle at 30% 50%, #0c6b35 3px, #4dff6a 4px)'},
+  {id:'neon',    name:'💡 Neon',    swatch:'linear-gradient(90deg,#eaffea,#4dff6a,#eaffea)'},
+  {id:'rainbow', name:'🌈 Rainbow', swatch:'linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#aa00ff)'},
+  {id:'tiger',   name:'🐯 Tiger',   swatch:'repeating-linear-gradient(90deg,#ff9a3c 0 6px,#111 6px 10px)'},
+];
+let playerSkin = localStorage.getItem('snakeBlastSkin') || 'classic';
+if(!SKINS.some(s=>s.id===playerSkin)) playerSkin='classic';
+function randomSkin(){ return SKINS[(Math.random()*SKINS.length)|0].id; }
+function setSkin(id){
+  if(!SKINS.some(s=>s.id===id))return;
+  playerSkin=id;
+  try{ localStorage.setItem('snakeBlastSkin', id); }catch(e){}
+  const me = snakes[myId];
+  if(me && me.isPlayer && me.alive) me.skin=id;
+  renderSkinRows();
+  SFX.eat();
+}
+function renderSkinRows(){
+  ['skinRow','sideSkinRow'].forEach(rowId=>{
+    const row=el(rowId); if(!row)return; row.innerHTML='';
+    SKINS.forEach((s,i)=>{
+      const b=document.createElement('button');
+      b.className='skinBtn'+(s.id===playerSkin?' sel':'');
+      b.title=`Press ${i+1}`;
+      b.innerHTML=`<span class="skinSwatch" style="background:${s.swatch}"></span>${s.name}`;
+      b.addEventListener('click',()=>{ac();setSkin(s.id);});
+      row.appendChild(b);
+    });
+  });
+}
 
 function rand(a,b){ return a + Math.random()*(b-a); }
 function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
@@ -196,7 +245,7 @@ function say(t){ feed.textContent=t; feedT=240; }
 
 function buildMap(){
   obstacles = [];
-  // Hand-designed danger layout + a few random ones, kept away from center spawn (1500,1500 r 300)
+  // Hand-designed danger layout. NOTE: nothing may cover the SPAWN safe circle!
   const fixed = [
     {x: 400, y: 400, w: 320, h: 120, type:'lava'},
     {x: 2200, y: 350, w: 380, h: 150, type:'spikes'},
@@ -206,17 +255,17 @@ function buildMap(){
     {x: 600, y: 1250, w: 130, h: 380, type:'spikes'},
     {x: 2250, y: 1200, w: 140, h: 420, type:'lava'},
     {x: 1250, y: 2300, w: 460, h: 120, type:'spikes'},
-    {x: 1400, y: 1400, w: 200, h: 200, type:'lava'}, // center danger ring to dodge around!
+    {x: 1350, y: 950, w: 220, h: 180, type:'lava'}, // mid-map danger to dodge around (clear of spawn!)
   ];
   fixed.forEach(o=>{ o.pulse=Math.random()*6; obstacles.push(o); });
-  // 5 more random danger zones away from center
+  // 5 more random danger zones — always kept clear of the spawn circle
   let tries=0;
-  while(obstacles.length < 14 && tries < 200){
+  while(obstacles.length < 14 && tries < 300){
     tries++;
     const w=rand(150,380), h=rand(100,220);
     const x=rand(EDGE+40, WORLD.w-EDGE-40-w), y=rand(EDGE+40, WORLD.h-EDGE-40-h);
     const cx=x+w/2, cy=y+h/2;
-    if(Math.hypot(cx-1500,cy-1500) < 420) continue; // keep spawn safe
+    if(Math.hypot(cx-SPAWN.x,cy-SPAWN.y) < SPAWN.clearR) continue; // keep spawn safe!
     if(obstacles.some(o=> x < o.x+o.w+120 && x+w+120 > o.x && y < o.y+o.h+120 && y+h+120 > o.y)) continue;
     obstacles.push({x,y,w,h,type: Math.random()<0.5?'lava':'spikes', pulse: Math.random()*6});
   }
@@ -248,24 +297,50 @@ function hitsEdge(x,y,r){
   return x < EDGE+r || y < EDGE+r || x > WORLD.w-EDGE-r || y > WORLD.h-EDGE-r;
 }
 
+function safeSpot(x, y, pad){
+  // Nudge a point until it is OUTSIDE all danger zones + off the deadly edge.
+  // Guarantees nobody ever spawns/respawns somewhere that kills on touch!
+  let guard=0;
+  while(guard++<60){
+    const dz=insideDanger(x,y,pad);
+    const edge=hitsEdge(x,y,pad);
+    if(!dz&&!edge)break;
+    if(dz){ // step away from the danger block's center
+      const cx=dz.x+dz.w/2, cy=dz.y+dz.h/2;
+      const a=Math.atan2(y-cy,x-cx)||Math.random()*6.28;
+      x+=Math.cos(a)*60; y+=Math.sin(a)*60;
+    }
+    if(hitsEdge(x,y,pad)){ x=Math.max(EDGE+pad+10,Math.min(WORLD.w-EDGE-pad-10,x)); y=Math.max(EDGE+pad+10,Math.min(WORLD.h-EDGE-pad-10,y)); }
+    x=Math.max(10,Math.min(WORLD.w-10,x)); y=Math.max(10,Math.min(WORLD.h-10,y));
+  }
+  return {x,y};
+}
+
 function makeSnake(id, name, color, isPlayer){
-  // spawn away from dangers + other snakes
-  let x=1500, y=1500, ok=false, t=0;
-  while(!ok && t<80){
+  // spawn away from dangers + other snakes — NEVER inside a death zone!
+  let x=SPAWN.x, y=SPAWN.y, ok=false, t=0;
+  while(!ok && t<120){
     t++;
-    x = isPlayer ? 1500+rand(-120,120) : rand(200, WORLD.w-200);
-    y = isPlayer ? 1500+rand(-120,120) : rand(200, WORLD.h-200);
-    ok = !insideDanger(x,y,80) && !hitsEdge(x,y,60);
+    if(isPlayer){ x=SPAWN.x+rand(-140,140); y=SPAWN.y+rand(-140,140); }
+    else { x=rand(200, WORLD.w-200); y=rand(200, WORLD.h-200); }
+    ok = !insideDanger(x,y,90) && !hitsEdge(x,y,70);
     if(ok && !isPlayer){
       for(const s of snakes){ if(s.alive && Math.hypot(s.x-x,s.y-y)<350){ ok=false; break; } }
     }
   }
+  if(!ok){
+    // Search failed (crowded map) — fall back to the guaranteed-safe spawn circle, never a death spot.
+    if(isPlayer){ x=SPAWN.x; y=SPAWN.y; }
+    else { x=WORLD.w/2+rand(-600,600); y=WORLD.h/2+rand(-600,600); }
+  }
+  const safe=safeSpot(x,y,90); x=safe.x; y=safe.y; // final guarantee: NOT in danger, NOT on edge
   const segs=[];
   const startLen = isPlayer ? 22 : 18 + ((Math.random()*25)|0);
   const ang = Math.random()*Math.PI*2;
   for(let i=0;i<startLen;i++) segs.push({x: x - Math.cos(ang)*i*9, y: y - Math.sin(ang)*i*9});
   return {
     id, name, color, isPlayer: !!isPlayer,
+    skin: isPlayer ? playerSkin : randomSkin(),
     x, y, angle: ang, targetAngle: ang,
     speed: 165, boostSpeed: 330,
     segs, targetLen: startLen,
@@ -274,7 +349,7 @@ function makeSnake(id, name, color, isPlayer){
     score: startLen, eaten: 0, kills: 0,
     boosting: false, boostDropT: 0,
     aiT: 0, aiTurn: 0, aiTarget: null,
-    warnT: 0, invuln: isPlayer ? 2 : 0, // brief spawn protection
+    warnT: 0, invuln: isPlayer ? 2.5 : 0, // brief spawn protection on top of the safe spot
     deadCause: ''
   };
 }
@@ -309,6 +384,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='m'||e.key==='M')el('muteBtn').click();
   if(e.key==='p'||e.key==='P')togglePause();
   if(e.key===' '){ if(state==='play'&&!paused) snakes[0].boosting=true; }
+  if(e.key>='1'&&e.key<='6'){ const sk=SKINS[+e.key-1]; if(sk){ setSkin(sk.id); if(state==='play')say(`🎨 Skin: ${sk.name}!`); } }
   if(e.key==='Enter' && (state==='menu'||state==='dead')){ ac(); startGame(); }
 });
 window.addEventListener('keyup',e=>{
@@ -364,12 +440,14 @@ function blastSnake(s, cause){
     for(let k=0;k<2;k++) particles.push({x:p.x,y:p.y,vx:rand(-160,160),vy:rand(-160,160),life:rand(25,55),max:55,color: Math.random()<0.6?s.color:'#ffffff',size:rand(2,4.5),grav:40});
   }
   // turn into a bunch of little balls! every ~2 segments = 1 orb, keeps killer's reward
+  // (orbs are nudged OUT of danger zones so they never bait you into dying!)
   let n=0;
   for(let i=0;i<s.segs.length;i+=2){
     const p=s.segs[i];
     const big = (i%8===0);
+    const safe=safeSpot(p.x+rand(-14,14), p.y+rand(-14,14), 12);
     orbs.push({
-      x: p.x+rand(-14,14), y: p.y+rand(-14,14),
+      x: safe.x, y: safe.y,
       vx: rand(-60,60), vy: rand(-60,60),
       r: big?7:rand(3.5,5.5),
       value: big?3:1,
@@ -715,6 +793,18 @@ function draw(){
   ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=2;
   ctx.strokeRect(bx,by,WORLD.w,WORLD.h);
 
+  // 🟢 SAFE SPAWN ZONE — no danger ever generates here, everyone spawns safe!
+  const spx=SPAWN.x-camX, spy=SPAWN.y-camY;
+  if(spx>-300&&spy>-300&&spx<VW+300&&spy<VH+300){
+    ctx.save();
+    ctx.strokeStyle=`rgba(77,255,106,${0.35+0.2*Math.sin(time*3)})`; ctx.lineWidth=3; ctx.setLineDash([12,10]);
+    ctx.beginPath(); ctx.arc(spx,spy,220,0,7); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(77,255,106,0.8)'; ctx.font='bold 13px Arial'; ctx.textAlign='center';
+    ctx.fillText('🟢 SAFE SPAWN', spx, spy-228);
+    ctx.restore();
+  }
+
   // obstacles (danger zones!)
   for(const o of obstacles){
     const sx=o.x-camX, sy=o.y-camY;
@@ -831,7 +921,13 @@ function draw(){
   drawMini();
 }
 
+function skinBaseColor(s, i){
+  if(s.skin==='rainbow') return `hsl(${(time*70+i*14)%360},95%,60%)`;
+  return shade(s.color, -(i/s.segs.length)*40);
+}
 function drawSnake(s, camX, camY){
+  const skin=s.skin||'classic';
+  const glow = skin==='neon';
   // body from tail to head
   for(let i=s.segs.length-1;i>=1;i--){
     const p=s.segs[i];
@@ -839,20 +935,47 @@ function drawSnake(s, camX, camY){
     if(sx<-40||sy<-40||sx>VW+40||sy>VH+40)continue;
     const t=i/s.segs.length; // 0 head → 1 tail
     const r=s.thick*(1-t*0.55);
-    ctx.fillStyle=shade(s.color, -t*40);
+    if(glow){ ctx.shadowColor=s.color; ctx.shadowBlur=16; }
+    ctx.fillStyle=skinBaseColor(s,i);
     ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.fill(); ctx.stroke();
-    // stripe
-    if(i%4===0){ ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(sx-r*0.25,sy-r*0.25,r*0.32,0,7); ctx.fill(); }
+    ctx.shadowBlur=0;
+    // ---- texture overlays ----
+    if(skin==='classic'){
+      if(i%4===0){ ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(sx-r*0.25,sy-r*0.25,r*0.32,0,7); ctx.fill(); }
+    } else if(skin==='stripes'){
+      if(i%6<3){ ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.arc(sx,sy,r*0.62,0,7); ctx.fill(); }
+      else { ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(sx-r*0.25,sy-r*0.25,r*0.3,0,7); ctx.fill(); }
+    } else if(skin==='spots'){
+      ctx.fillStyle='rgba(0,0,0,0.45)';
+      ctx.beginPath(); ctx.arc(sx-r*0.35,sy-r*0.2,r*0.26,0,7); ctx.fill();
+      ctx.beginPath(); ctx.arc(sx+r*0.3,sy+r*0.25,r*0.2,0,7); ctx.fill();
+    } else if(skin==='neon'){
+      ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(sx,sy,r*0.38,0,7); ctx.fill();
+    } else if(skin==='rainbow'){
+      ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(sx-r*0.25,sy-r*0.25,r*0.3,0,7); ctx.fill();
+    } else if(skin==='tiger'){
+      if(i%4<2){ ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(sx-r,sy-r*0.35,r*2,r*0.7); }
+      if(i%4===0){ ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(sx-r*0.25,sy-r*0.25,r*0.28,0,7); ctx.fill(); }
+    }
   }
   // head
   const sx=s.x-camX, sy=s.y-camY;
   const hr=s.thick+2;
-  if(s.boosting){ ctx.shadowColor=s.color; ctx.shadowBlur=20; }
-  ctx.fillStyle=s.color;
+  if(s.boosting||glow){ ctx.shadowColor=skin==='rainbow'?'#ffffff':s.color; ctx.shadowBlur=20; }
+  ctx.fillStyle=skin==='rainbow'?`hsl(${(time*70)%360},95%,60%)`:s.color;
   ctx.strokeStyle=s.isPlayer?'#ffffff':'rgba(0,0,0,.5)'; ctx.lineWidth=s.isPlayer?3:2;
   ctx.beginPath(); ctx.arc(sx,sy,hr,0,7); ctx.fill(); ctx.stroke();
   ctx.shadowBlur=0;
+  if(skin==='tiger'){ // tiger head stripes
+    ctx.fillStyle='rgba(0,0,0,0.6)';
+    ctx.fillRect(sx-hr,sy-hr*0.5,hr*2,hr*0.32);
+    ctx.fillRect(sx-hr,sy+hr*0.18,hr*2,hr*0.32);
+  }
+  if(skin==='spots'){
+    ctx.fillStyle='rgba(0,0,0,0.5)';
+    ctx.beginPath(); ctx.arc(sx-hr*0.3,sy-hr*0.45,hr*0.2,0,7); ctx.fill();
+  }
   // eyes look along angle
   const ex=Math.cos(s.angle), ey=Math.sin(s.angle);
   const px=-ey, py=ex;
@@ -881,6 +1004,9 @@ function drawMini(){
   // danger zones red
   mctx.fillStyle='#ff2b2b';
   obstacles.forEach(o=>mctx.fillRect(sx(o.x),sy(o.y),Math.max(3,o.w/WORLD.w*mw),Math.max(3,o.h/WORLD.h*mh)));
+  // safe spawn zone green
+  mctx.strokeStyle='#4dff6a'; mctx.lineWidth=1.5;
+  mctx.beginPath(); mctx.arc(sx(SPAWN.x),sy(SPAWN.y),220/WORLD.w*mw,0,7); mctx.stroke();
   // deadly edge
   mctx.strokeStyle='#ff2b2b'; mctx.lineWidth=3; mctx.strokeRect(1,1,mw-2,mh-2);
   // orbs clusters faint
@@ -929,6 +1055,7 @@ function shade(hex, amt){
 }
 
 requestAnimationFrame(loop);
+renderSkinRows();
 updateBoard();
 </script>
 </body>
