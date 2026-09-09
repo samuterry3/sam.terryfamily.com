@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🐍 Snake Blast 💥</title>
+<link rel="icon" type="image/png" href="logo.png">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 14px;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 0%, #10240f 0%, #070714 60%, #000 100%);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: white;
+    overflow-x: hidden;
+  }
+  h1 {
+    font-size: 2.3rem; margin: 0.2rem 0;
+    background: linear-gradient(90deg,#4dff6a,#d4ff3d,#00f0ff,#ff4bd8,#4dff6a);
+    background-size: 300% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: rainbow 4s linear infinite;
+    text-align: center;
+  }
+  @keyframes rainbow { to { background-position: 300% 0; } }
+  .subtitle { color: #bbb; margin-bottom: 8px; text-align: center; max-width: 900px; }
+  .subtitle b { color: #4dff6a; }
+  .danger-note b { color: #ff5b5b; }
+  #hud { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 8px 0; font-weight: bold; font-size: 14px; }
+  .pill { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); padding: 6px 14px; border-radius: 999px; }
+  .pill span { color: #4dff6a; }
+  .pill.red span { color: #ff6b6b; }
+  .pill.gold span { color: #ffd93d; }
+  #layout { display: flex; gap: 14px; justify-content: center; align-items: flex-start; flex-wrap: wrap; width: 100%; max-width: 1350px; }
+  #gameCol { display: flex; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 300px; max-width: 1000px; width: 100%; }
+  #wrap { position: relative; width: 100%; }
+  canvas#game { width: 100%; height: auto; aspect-ratio: 16/10; border: 3px solid #2bff5b55; border-radius: 12px; background: #05050f;
+    box-shadow: 0 0 40px rgba(77,255,106,.18), 0 10px 50px rgba(0,0,0,.6); display: block; touch-action: none; cursor: crosshair; }
+  #miniWrap { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,.72); border: 2px solid rgba(255,255,255,.25);
+    border-radius: 10px; padding: 4px; text-align: center; }
+  #miniWrap div { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #ffd93d; }
+  #mini { display: block; border-radius: 6px; }
+  #side { width: 290px; flex: 0 0 290px; background: rgba(255,255,255,.06); border: 1px solid rgba(77,255,106,.35);
+    border-radius: 12px; padding: 14px 16px; font-size: 14px; line-height: 1.7; }
+  #side .how { color: #4dff6a; font-weight: 800; letter-spacing: 1px; }
+  #side .warn { color: #ff6b6b; font-weight: 800; letter-spacing: 1px; }
+  kbd { background: #4dff6a; color: #111; border: 1px solid #1d7a2e; border-bottom-width: 3px; border-radius: 6px;
+    padding: 1px 8px; font-family: inherit; font-size: 13px; font-weight: 800; white-space: nowrap; }
+  #btnRow { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  button.epic { padding: 11px 22px; font-size: 15px; font-weight: 800; color: white; border: none; border-radius: 999px; cursor: pointer;
+    background: linear-gradient(45deg,#22c55e,#16a34a); box-shadow: 0 4px 20px rgba(34,197,94,.5); transition: transform .15s; }
+  button.epic:hover { transform: translateY(-2px) scale(1.03); }
+  button.ghost { padding: 11px 18px; font-size: 14px; color: #ddd; background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.2); border-radius: 999px; cursor: pointer; }
+  button.ghost:hover { background: rgba(255,255,255,.15); }
+  a.back { color: #6ea8ff; margin-top: 12px; font-size: 14px; }
+  #feed { width: 100%; max-width: 960px; margin-top: 8px; min-height: 22px; text-align: center; color: #ffd93d; font-weight: bold; font-size: 14px; }
+  #board { margin-top: 8px; width: 100%; }
+  #board h3 { margin: 6px 0; font-size: 14px; color: #ffd93d; letter-spacing: 1px; }
+  #board ol { margin: 0; padding-left: 22px; font-size: 13px; }
+  #board li.me { color: #4dff6a; font-weight: 800; }
+  /* overlays */
+  #menu, #dead { position: absolute; inset: 0; background: rgba(0,0,0,.85); border-radius: 12px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 20px; z-index: 5; }
+  #dead { display: none; }
+  #menu h2, #dead h2 { margin: 0; font-size: 30px; }
+  #menu p, #dead p { color: #ccc; max-width: 620px; line-height: 1.6; }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin: 0 2px; vertical-align: middle; }
+  #legend { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; font-size: 12.5px; color: #ccc; margin-top: 6px; }
+  @media (max-width: 800px){ #side{width:min(960px,96vw); flex:none;} #miniWrap{ transform: scale(.8); transform-origin: top right; } }
+</style>
+</head>
+<body>
+<h1>🐍 SNAKE BLAST 💥</h1>
+<div class="subtitle">Start as a snake! Ram your head into another snake and <b>YOU BLAST into balls</b> 💥 — but eat balls to <b>get BIGGER</b> 🟢 • Dodge the <span style="color:#ff5b5b;font-weight:800">☠️ DANGER ZONES + red walls</span> or you die! Watch the <b>🗺️ MAP</b>!</div>
+
+<div id="hud">
+  <div class="pill">📏 Length: <span id="hLen">0</span></div>
+  <div class="pill gold">🟢 Eaten: <span id="hEat">0</span></div>
+  <div class="pill red">💥 Kills: <span id="hKills">0</span></div>
+  <div class="pill">🏆 Best: <span id="hBest">0</span></div>
+  <div class="pill">🐍 Alive: <span id="hAlive">0</span></div>
+  <div class="pill">⚡ Boost: <span>SPACE / click</span></div>
+</div>
+
+<div id="layout">
+<div id="gameCol">
+<div id="wrap">
+  <canvas id="game" width="960" height="600"></canvas>
+  <div id="miniWrap"><div>🗺️ MAP</div><canvas id="mini" width="150" height="150"></canvas></div>
+  <div id="menu">
+    <h2>🐍 SNAKE BLAST 💥</h2>
+    <p>
+      You start as a little snake in a <b>giant world</b> (see the <b style="color:#ffd93d">🗺️ MAP</b> top-right!).<br>
+      👉 If <b>YOUR HEAD</b> hits another snake's body → <b style="color:#ff6b6b">YOU BLAST into a bunch of little balls!</b><br>
+      👉 If <b>THEY</b> hit <b>YOU</b> → <b style="color:#4dff6a">THEY BLAST</b> and you eat their balls to <b>get BIGGER</b>! 🟢<br>
+      👉 Eat glowing balls to grow. Boost to hunt — but boosting burns size!<br>
+      <span class="danger-note">☠️ Dodge the <b>lava / spike DANGER ZONES</b> and the <b>red world edge</b> — touch them and you die!</span>
+    </p>
+    <div id="legend">
+      <span><span class="dot" style="background:#4dff6a"></span> you</span>
+      <span><span class="dot" style="background:#ffd93d"></span> food balls (eat!)</span>
+      <span><span class="dot" style="background:#ff5b5b"></span> ☠️ danger = death</span>
+      <span><span class="dot" style="background:#00f0ff"></span> enemy snakes</span>
+    </div>
+    <button class="epic" id="btnPlay">▶ PLAY!</button>
+    <p style="font-size:13px"><kbd>Mouse</kbd> / <kbd>WASD</kbd> / <kbd>←↑↓→</kbd> steer • <kbd>SPACE</kbd> / <kbd>click</kbd> / <kbd>double-tap</kbd> boost • <kbd>P</kbd> pause • works on 📱 touch!</p>
+  </div>
+  <div id="dead">
+    <h2 id="deadTitle">💥 YOU BLASTED! 💥</h2>
+    <p id="deadText"></p>
+    <button class="epic" id="btnRespawn">↻ RESPAWN AS NEW SNAKE</button>
+  </div>
+</div>
+<div id="feed"></div>
+<div id="btnRow">
+  <button class="epic" id="restartBtn">↻ RESTART</button>
+  <button class="ghost" id="pauseBtn">⏸ Pause (P)</button>
+  <button class="ghost" id="muteBtn">🔊 Sound: ON</button>
+</div>
+</div>
+<aside id="side">
+  <span class="how">🎮 HOW TO PLAY</span>
+  <div>🐍 Steer with <b>mouse</b>, <kbd>WASD</kbd> or <kbd>←↑↓→</kbd> / touch-drag</div>
+  <div>🟢 Eat little balls → <b>snake gets bigger</b></div>
+  <div>💥 Head hits a snake body → <b>you BLAST into balls</b> for others to eat!</div>
+  <div>⚡ <kbd>SPACE</kbd>/click = boost (drops balls, shrinks you!)</div>
+  <div>👑 Outlive + out-eat the 9 bot snakes!</div>
+  <hr style="border-color:#333">
+  <span class="warn">☠️ DANGER = DEATH</span>
+  <div>🟥 <b>Lava blocks</b> &amp; <b>spike pits</b> scattered on the map</div>
+  <div>🟥 <b>Red world edge</b> — don't touch!</div>
+  <div>🗺️ Red squares on the <b>MAP</b> = danger. Avoid!</div>
+  <hr style="border-color:#333">
+  <span class="how">🗺️ MAP + LEADERBOARD</span>
+  <div>Green arrow = you • dots = enemies • red = danger</div>
+  <div id="board"><h3>🏆 BIGGEST SNAKES</h3><ol id="boardList"></ol></div>
+</aside>
+</div>
+<a class="back" href="./index.html">← back to all games</a>
+
+<script>
+'use strict';
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const VW = canvas.width, VH = canvas.height;
+const mini = document.getElementById('mini');
+const mctx = mini.getContext('2d');
+const el = id => document.getElementById(id);
+const hLen=el('hLen'), hEat=el('hEat'), hKills=el('hKills'), hBest=el('hBest'), hAlive=el('hAlive'),
+      feed=el('feed'), menu=el('menu'), deadBox=el('dead'), deadText=el('deadText'), deadTitle=el('deadTitle'),
+      boardList=el('boardList');
+
+// ---------- AUDIO ----------
+let audioCtx=null, muted=false;
+function ac(){ if(!audioCtx){ try{audioCtx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume(); return audioCtx; }
+function tone(f,d=0.1,t='square',v=0.1,s=0){ if(muted)return; const c=ac(); if(!c)return;
+  const o=c.createOscillator(),g=c.createGain(); o.type=t; o.frequency.setValueAtTime(f,c.currentTime);
+  if(s)o.frequency.exponentialRampToValueAtTime(Math.max(30,f+s),c.currentTime+d);
+  g.gain.setValueAtTime(v,c.currentTime); g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+d);
+  o.connect(g);g.connect(c.destination); o.start(); o.stop(c.currentTime+d); }
+const SFX={
+  eat(){ tone(600+Math.random()*400,0.07,'sine',0.09,200); },
+  bigEat(){ tone(500,0.1,'sine',0.12,400); setTimeout(()=>tone(900,0.12,'sine',0.1,300),60); },
+  die(){ tone(300,0.4,'sawtooth',0.16,-240); },
+  kill(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.13,'square',0.11),i*70)); },
+  boom(){ tone(90,0.4,'sawtooth',0.2,-50); },
+  warn(){ tone(200,0.12,'square',0.09,-60); },
+  boost(){ tone(800,0.08,'sawtooth',0.05,-300); }
+};
+el('muteBtn').addEventListener('click',e=>{muted=!muted;e.target.textContent=muted?'🔇 Sound: OFF':'🔊 Sound: ON';});
+
+// ---------- WORLD ----------
+const WORLD = { w: 3000, h: 3000 };
+const EDGE = 30; // deadly red border thickness
+let state = 'menu'; // menu | play | paused | dead
+let paused = false;
+let snakes = [], orbs = [], particles = [], floaters = [];
+let obstacles = []; // {x,y,w,h,type:'lava'|'spikes',pulse}
+let foods = []; // small ambient pellets {x,y,r,color,value,pulse}
+let cam = { x: WORLD.w/2, y: WORLD.h/2 };
+let time = 0, feedT = 0, shake = 0;
+let myId = 0;
+let best = parseInt(localStorage.getItem('snakeBlastBest')||'0',10)||0;
+hBest.textContent = best;
+
+const BOT_NAMES = ['Venom','Slinky','Python','Noodle','Fang','Cobra','Wormy','Slyther','Zigzag','Boa','Snek','Anaconda'];
+const BOT_COLORS = ['#00f0ff','#ff4bd8','#ffd93d','#ff8c42','#b983ff','#ff5b5b','#4da6ff','#fffd7a','#7affd4','#ff9ff3'];
+const FOOD_COLORS = ['#ffd93d','#4dff6a','#00f0ff','#ff4bd8','#ff8c42','#ffffff','#7affd4'];
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
+function say(t){ feed.textContent=t; feedT=240; }
+
+function buildMap(){
+  obstacles = [];
+  // Hand-designed danger layout + a few random ones, kept away from center spawn (1500,1500 r 300)
+  const fixed = [
+    {x: 400, y: 400, w: 320, h: 120, type:'lava'},
+    {x: 2200, y: 350, w: 380, h: 150, type:'spikes'},
+    {x: 300, y: 2000, w: 420, h: 140, type:'spikes'},
+    {x: 2300, y: 2100, w: 340, h: 160, type:'lava'},
+    {x: 1300, y: 600, w: 400, h: 110, type:'lava'},
+    {x: 600, y: 1250, w: 130, h: 380, type:'spikes'},
+    {x: 2250, y: 1200, w: 140, h: 420, type:'lava'},
+    {x: 1250, y: 2300, w: 460, h: 120, type:'spikes'},
+    {x: 1400, y: 1400, w: 200, h: 200, type:'lava'}, // center danger ring to dodge around!
+  ];
+  fixed.forEach(o=>{ o.pulse=Math.random()*6; obstacles.push(o); });
+  // 5 more random danger zones away from center
+  let tries=0;
+  while(obstacles.length < 14 && tries < 200){
+    tries++;
+    const w=rand(150,380), h=rand(100,220);
+    const x=rand(EDGE+40, WORLD.w-EDGE-40-w), y=rand(EDGE+40, WORLD.h-EDGE-40-h);
+    const cx=x+w/2, cy=y+h/2;
+    if(Math.hypot(cx-1500,cy-1500) < 420) continue; // keep spawn safe
+    if(obstacles.some(o=> x < o.x+o.w+120 && x+w+120 > o.x && y < o.y+o.h+120 && y+h+120 > o.y)) continue;
+    obstacles.push({x,y,w,h,type: Math.random()<0.5?'lava':'spikes', pulse: Math.random()*6});
+  }
+}
+
+function spawnFoods(n){
+  for(let i=0;i<n;i++){
+    foods.push({
+      x: rand(EDGE+20, WORLD.w-EDGE-20),
+      y: rand(EDGE+20, WORLD.h-EDGE-20),
+      r: rand(3,5.5),
+      color: FOOD_COLORS[(Math.random()*FOOD_COLORS.length)|0],
+      value: 1,
+      pulse: Math.random()*6
+    });
+  }
+  // remove foods stuck inside danger zones
+  foods = foods.filter(f => !insideDanger(f.x, f.y, 6));
+}
+
+function insideDanger(x, y, pad){
+  pad = pad||0;
+  for(const o of obstacles){
+    if(x > o.x-pad && x < o.x+o.w+pad && y > o.y-pad && y < o.y+o.h+pad) return o;
+  }
+  return null;
+}
+function hitsEdge(x,y,r){
+  return x < EDGE+r || y < EDGE+r || x > WORLD.w-EDGE-r || y > WORLD.h-EDGE-r;
+}
+
+function makeSnake(id, name, color, isPlayer){
+  // spawn away from dangers + other snakes
+  let x=1500, y=1500, ok=false, t=0;
+  while(!ok && t<80){
+    t++;
+    x = isPlayer ? 1500+rand(-120,120) : rand(200, WORLD.w-200);
+    y = isPlayer ? 1500+rand(-120,120) : rand(200, WORLD.h-200);
+    ok = !insideDanger(x,y,80) && !hitsEdge(x,y,60);
+    if(ok && !isPlayer){
+      for(const s of snakes){ if(s.alive && Math.hypot(s.x-x,s.y-y)<350){ ok=false; break; } }
+    }
+  }
+  const segs=[];
+  const startLen = isPlayer ? 22 : 18 + ((Math.random()*25)|0);
+  const ang = Math.random()*Math.PI*2;
+  for(let i=0;i<startLen;i++) segs.push({x: x - Math.cos(ang)*i*9, y: y - Math.sin(ang)*i*9});
+  return {
+    id, name, color, isPlayer: !!isPlayer,
+    x, y, angle: ang, targetAngle: ang,
+    speed: 165, boostSpeed: 330,
+    segs, targetLen: startLen,
+    thick: 9,
+    alive: true, respawnT: 0,
+    score: startLen, eaten: 0, kills: 0,
+    boosting: false, boostDropT: 0,
+    aiT: 0, aiTurn: 0, aiTarget: null,
+    warnT: 0, invuln: isPlayer ? 2 : 0, // brief spawn protection
+    deadCause: ''
+  };
+}
+
+function startGame(){
+  buildMap();
+  foods=[]; orbs=[]; particles=[]; floaters=[];
+  spawnFoods(420);
+  snakes=[];
+  snakes.push(makeSnake(0,'YOU','#4dff6a',true));
+  myId=0;
+  for(let i=0;i<9;i++){
+    snakes.push(makeSnake(i+1, BOT_NAMES[i%BOT_NAMES.length]+(i>=BOT_NAMES.length?' '+((i/BOT_NAMES.length)|0+2):''), BOT_COLORS[i%BOT_COLORS.length], false));
+  }
+  time=0; shake=0; paused=false; state='play';
+  menu.style.display='none'; deadBox.style.display='none';
+  say('🟢 Eat balls to grow! 💥 Ram THEM so THEY blast — don\'t hit anyone! ☠️ Dodge red danger!');
+  SFX.kill();
+  const me = snakes[0];
+  cam.x=me.x; cam.y=me.y;
+}
+
+// ---------- INPUT ----------
+const keys={};
+let mouse={x:VW/2,y:VH/2,active:false,down:false};
+let touchSteer=null;
+
+window.addEventListener('keydown',e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
+  if(e.repeat)return;
+  keys[e.key.toLowerCase()]=true; keys[e.key]=true; ac();
+  if(e.key==='m'||e.key==='M')el('muteBtn').click();
+  if(e.key==='p'||e.key==='P')togglePause();
+  if(e.key===' '){ if(state==='play'&&!paused) snakes[0].boosting=true; }
+  if(e.key==='Enter' && (state==='menu'||state==='dead')){ ac(); startGame(); }
+});
+window.addEventListener('keyup',e=>{
+  keys[e.key.toLowerCase()]=false; keys[e.key]=false;
+  if(e.key===' ') snakes.forEach(s=>{ if(s.isPlayer) s.boosting=false; });
+});
+function canvasPos(e){
+  const r=canvas.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*(canvas.width/r.width), y:(e.clientY-r.top)*(canvas.height/r.height) };
+}
+canvas.addEventListener('mousemove',e=>{ const p=canvasPos(e); mouse.x=p.x; mouse.y=p.y; mouse.active=true; });
+canvas.addEventListener('mousedown',e=>{ ac(); mouse.down=true; if(state==='play'){const me=snakes[myId]; if(me)me.boosting=true;} });
+window.addEventListener('mouseup',()=>{ mouse.down=false; snakes.forEach(s=>{ if(s.isPlayer) s.boosting=false; }); });
+// touch: drag to steer, double-tap-hold to boost
+let lastTap=0;
+canvas.addEventListener('touchstart',e=>{ ac(); const t=e.touches[0]; const p=canvasPos(t); touchSteer={x:p.x,y:p.y}; mouse.active=false;
+  const now=performance.now(); if(now-lastTap<300 && state==='play'){const me=snakes[myId]; if(me)me.boosting=true;} lastTap=now;
+},{passive:true});
+canvas.addEventListener('touchmove',e=>{ const t=e.touches[0]; const p=canvasPos(t); touchSteer={x:p.x,y:p.y}; e.preventDefault(); },{passive:false});
+canvas.addEventListener('touchend',()=>{ touchSteer=null; snakes.forEach(s=>{ if(s.isPlayer) s.boosting=false; }); });
+
+el('btnPlay').addEventListener('click',()=>{ac();startGame();});
+el('btnRespawn').addEventListener('click',()=>{ac();respawnPlayer();});
+el('restartBtn').addEventListener('click',()=>{ac();startGame();});
+el('pauseBtn').addEventListener('click',togglePause);
+function togglePause(){
+  if(state!=='play')return;
+  paused=!paused;
+  el('pauseBtn').textContent = paused ? '▶ Resume (P)' : '⏸ Pause (P)';
+  say(paused?'⏸ Paused.':'▶ Go go go!');
+}
+
+function respawnPlayer(){
+  const old = snakes[myId];
+  const kills = old?old.kills:0, bestEaten = old?old.eaten:0;
+  const fresh = makeSnake(myId,'YOU','#4dff6a',true);
+  fresh.kills=kills; // keep run kills? no — fresh run, but keep best
+  snakes[myId]=fresh;
+  cam.x=fresh.x; cam.y=fresh.y;
+  state='play'; deadBox.style.display='none';
+  say('🐍 Fresh snake! Eat up and dodge red!');
+}
+
+// ---------- DEATH → BLAST INTO BALLS ----------
+function blastSnake(s, cause){
+  if(!s.alive)return;
+  s.alive=false; s.deadCause=cause;
+  SFX.boom(); SFX.die();
+  shake=Math.max(shake, s.isPlayer?16:10);
+  // explosion particles along whole body
+  for(let i=0;i<s.segs.length;i+=2){
+    const p=s.segs[i];
+    for(let k=0;k<2;k++) particles.push({x:p.x,y:p.y,vx:rand(-160,160),vy:rand(-160,160),life:rand(25,55),max:55,color: Math.random()<0.6?s.color:'#ffffff',size:rand(2,4.5),grav:40});
+  }
+  // turn into a bunch of little balls! every ~2 segments = 1 orb, keeps killer's reward
+  let n=0;
+  for(let i=0;i<s.segs.length;i+=2){
+    const p=s.segs[i];
+    const big = (i%8===0);
+    orbs.push({
+      x: p.x+rand(-14,14), y: p.y+rand(-14,14),
+      vx: rand(-60,60), vy: rand(-60,60),
+      r: big?7:rand(3.5,5.5),
+      value: big?3:1,
+      color: s.color,
+      glow: true, t: 30, // can't be instantly re-eaten
+      pulse: Math.random()*6
+    });
+    n++;
+    if(orbs.length>900) orbs.shift();
+  }
+  floaters.push({x:s.x,y:s.y-20,text:`💥 ${s.name} BLASTED! +${n} balls!`,life:110,color:'#ffd93d'});
+  if(s.isPlayer){
+    state='dead';
+    setTimeout(()=>{
+      if(state!=='dead')return;
+      deadTitle.textContent = cause==='danger' ? '☠️ YOU HIT DANGER! ☠️' : cause==='wall' ? '🟥 YOU HIT THE WALL! 🟥' : '💥 YOU BLASTED! 💥';
+      const killer = s.killedBy ? ` Killer: <b style="color:${s.killedByColor}">${s.killedBy}</b> — they get to eat your balls! 😱` : '';
+      deadText.innerHTML = `${cause==='danger'?'You touched a <b style="color:#ff5b5b">☠️ DANGER ZONE</b>. Dodge the red blocks!':cause==='wall'?'You touched the <b style="color:#ff5b5b">deadly red edge</b>. Stay inside!':`Your head hit <b style="color:${s.killedByColor||'#fff'}">${s.killedBy||'a snake'}</b>. Whoever's head hits, BLASTS!`}${killer}<br>📏 Length <b>${s.segs.length}</b> • 🟢 Eaten <b>${s.eaten}</b> • 💥 Kills <b>${s.kills}</b>`;
+      deadBox.style.display='flex';
+    }, 900);
+    say(cause==='danger'?'☠️ You hit a DANGER ZONE and blasted into balls!':cause==='wall'?'🟥 The edge is deadly! You blasted!':`💥 You hit ${s.killedBy||'a snake'} and BLASTED into balls!`);
+  } else {
+    s.respawnT = 3;
+  }
+}
+
+// ---------- UPDATE ----------
+let last=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min(0.033,(ts-last)/1000||0.016); last=ts;
+  if(state==='play'&&!paused) update(dt);
+  draw();
+}
+function steerPlayer(me, dt){
+  // keyboard vector?
+  let kx=0,ky=0;
+  if(keys['w']||keys['arrowup'])ky-=1; if(keys['s']||keys['arrowdown'])ky+=1;
+  if(keys['a']||keys['arrowleft'])kx-=1; if(keys['d']||keys['arrowright'])kx+=1;
+  if(kx||ky){
+    me.targetAngle=Math.atan2(ky,kx);
+    mouse.active=false;
+  } else if(touchSteer){
+    const dx=touchSteer.x-VW/2, dy=touchSteer.y-VH/2;
+    if(Math.hypot(dx,dy)>18) me.targetAngle=Math.atan2(dy,dx);
+  } else if(mouse.active){
+    const dx=mouse.x-VW/2, dy=mouse.y-VH/2;
+    if(Math.hypot(dx,dy)>24) me.targetAngle=Math.atan2(dy,dx);
+  }
+}
+function botAI(s, dt){
+  s.aiT-=dt;
+  if(s.aiT<=0){
+    s.aiT=rand(0.3,0.7);
+    // find nearest orb/food
+    let bx=null,bd=1e12;
+    const consider=(x,y)=>{const d=dist2(s.x,s.y,x,y); if(d<bd){bd=d;bx={x,y};}};
+    for(let i=0;i<orbs.length;i+=2){ const o=orbs[i]; if(o.t>0)continue; consider(o.x,o.y); if(bd<400*400)break; }
+    if(!bx||bd>900*900){
+      for(let i=0;i<foods.length;i+=3){ const f=foods[i]; consider(f.x,f.y); if(bd<300*300)break; }
+    }
+    if(bx) s.aiTarget=bx; else s.aiTarget={x:s.x+Math.cos(s.angle)*400, y:s.y+Math.sin(s.angle)*400};
+    if(Math.random()<0.12) s.aiTarget={x:rand(200,WORLD.w-200), y:rand(200,WORLD.h-200)}; // wander
+    s.boosting = s.segs.length>45 && Math.random()<0.25; // big bots hunt with boost sometimes
+  }
+  if(s.aiTarget) s.targetAngle=Math.atan2(s.aiTarget.y-s.y, s.aiTarget.x-s.x);
+  // danger avoidance: look ahead
+  const look=130;
+  const ax=s.x+Math.cos(s.angle)*look, ay=s.y+Math.sin(s.angle)*look;
+  const dz=insideDanger(ax,ay,26);
+  if(dz||hitsEdge(ax,ay,30)){
+    // steer away hard: turn perpendicular away from danger center / wall
+    let away;
+    if(dz) away=Math.atan2(s.y-(dz.y+dz.h/2), s.x-(dz.x+dz.w/2));
+    else away=Math.atan2(WORLD.h/2-s.y, WORLD.w/2-s.x); // toward center if wall ahead
+    // blend: mostly away, a bit of current
+    s.targetAngle = away + rand(-0.4,0.4);
+    if(s.boosting) s.boosting=false;
+  } else {
+    // snake avoidance: if another segment straight ahead, veer
+    for(const o of snakes){
+      if(o===s||!o.alive)continue;
+      for(let i=0;i<o.segs.length;i+=4){
+        const p=o.segs[i];
+        const dx=p.x-s.x, dy=p.y-s.y;
+        const d=Math.hypot(dx,dy);
+        if(d<150){
+          const angTo=Math.atan2(dy,dx);
+          let diff=((angTo-s.angle+Math.PI*3)%(Math.PI*2))-Math.PI;
+          if(Math.abs(diff)<0.5){ s.targetAngle = s.angle + (diff>0?-1:1)*1.2; break; }
+        }
+      }
+    }
+  }
+}
+
+function moveSnake(s, dt){
+  // smooth turn (bigger snakes turn slower — fair!)
+  const turnSpeed = Math.max(2.2, 4.6 - s.segs.length*0.012);
+  let diff=((s.targetAngle-s.angle+Math.PI*3)%(Math.PI*2))-Math.PI;
+  const maxTurn=turnSpeed*dt;
+  if(diff>maxTurn)diff=maxTurn; else if(diff<-maxTurn)diff=-maxTurn;
+  s.angle+=diff;
+  const spd=(s.boosting&&s.segs.length>12)?s.boostSpeed:s.speed;
+  s.x+=Math.cos(s.angle)*spd*dt;
+  s.y+=Math.sin(s.angle)*spd*dt;
+  // clamp inside world (edge check kills first, clamp keeps rendering sane)
+  s.x=Math.max(4,Math.min(WORLD.w-4,s.x));
+  s.y=Math.max(4,Math.min(WORLD.h-4,s.y));
+  // head becomes seg[0], rest follow at fixed spacing
+  s.segs[0].x=s.x; s.segs[0].y=s.y;
+  const gap=8;
+  for(let i=1;i<s.segs.length;i++){
+    const p=s.segs[i], q=s.segs[i-1];
+    const dx=q.x-p.x, dy=q.y-p.y;
+    const d=Math.hypot(dx,dy)||0.001;
+    const want=gap;
+    if(d>want){ p.x=q.x-dx/d*want; p.y=q.y-dy/d*want; }
+  }
+  // grow / shrink toward targetLen
+  if(s.segs.length<s.targetLen){
+    const tail=s.segs[s.segs.length-1];
+    s.segs.push({x:tail.x,y:tail.y});
+  } else if(s.segs.length>s.targetLen){
+    s.segs.pop();
+  }
+  s.thick = 7 + Math.min(11, s.segs.length*0.045);
+  s.score=s.segs.length;
+  if(s.invuln>0)s.invuln-=dt;
+  // boost burns size + drops balls
+  if(s.boosting&&s.segs.length>12){
+    s.boostDropT-=dt;
+    if(s.boostDropT<=0){
+      s.boostDropT=0.18;
+      s.targetLen=Math.max(10,s.targetLen-1);
+      s.segs.pop && null;
+      orbs.push({x:s.x-Math.cos(s.angle)*20,y:s.y-Math.sin(s.angle)*20,vx:rand(-30,30),vy:rand(-30,30),r:3.5,value:1,color:s.color,glow:true,t:1.2,pulse:0});
+      particles.push({x:s.x,y:s.y,vx:-Math.cos(s.angle)*120+rand(-40,40),vy:-Math.sin(s.angle)*120+rand(-40,40),life:16,max:16,color:s.color,size:3,grav:0});
+    }
+    if(Math.random()<0.3&&s.isPlayer&&orbs.length%20===0)SFX.boost();
+  }
+}
+
+function update(dt){
+  time+=dt;
+  if(feedT>0){feedT--;if(feedT===0)feed.textContent='';}
+  if(shake>0){shake*=0.9;if(shake<0.3)shake=0;}
+  obstacles.forEach(o=>o.pulse+=dt*3);
+  foods.forEach(f=>f.pulse+=dt*4);
+  orbs.forEach(o=>{o.pulse+=dt*5; if(o.t>0)o.t-=dt; o.x+=o.vx*dt; o.y+=o.vy*dt; o.vx*=0.96; o.vy*=0.96;});
+  particles=particles.filter(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.grav*dt;p.life--;return p.life>0;});
+  floaters=floaters.filter(f=>{f.y-=28*dt;f.life--;return f.life>0;});
+
+  const me=snakes[myId];
+
+  // respawn dead bots
+  snakes.forEach(s=>{
+    if(s.isPlayer||s.alive)return;
+    s.respawnT-=dt;
+    if(s.respawnT<=0){
+      const fresh=makeSnake(s.id, BOT_NAMES[(Math.random()*BOT_NAMES.length)|0], BOT_COLORS[(Math.random()*BOT_COLORS.length)|0], false);
+      fresh.kills=0;
+      Object.assign(s, fresh, {id:s.id});
+      for(let i=0;i<6;i++)particles.push({x:s.x,y:s.y,vx:rand(-140,140),vy:rand(-140,140),life:30,max:30,color:s.color,size:3,grav:0});
+    }
+  });
+
+  // steer
+  snakes.forEach(s=>{
+    if(!s.alive)return;
+    if(s.isPlayer)steerPlayer(s,dt); else botAI(s,dt);
+  });
+  // move
+  snakes.forEach(s=>{ if(s.alive)moveSnake(s,dt); });
+
+  // ---- eating: head near orb/food ----
+  snakes.forEach(s=>{
+    if(!s.alive)return;
+    const eatR=s.thick+10;
+    for(let i=orbs.length-1;i>=0;i--){
+      const o=orbs[i];
+      if(o.t>0)continue;
+      if(dist2(s.x,s.y,o.x,o.y) < (eatR+o.r)*(eatR+o.r)){
+        orbs.splice(i,1);
+        s.targetLen+=o.value; s.eaten+=o.value;
+        if(s.isPlayer){ SFX.eat(); if(o.value>=3)SFX.bigEat(); }
+        particles.push({x:o.x,y:o.y,vx:rand(-60,60),vy:rand(-60,60),life:14,max:14,color:o.color,size:3,grav:0});
+        // keep cap
+        if(s.targetLen>400)s.targetLen=400;
+      }
+    }
+    for(let i=foods.length-1;i>=0;i--){
+      const f=foods[i];
+      if(dist2(s.x,s.y,f.x,f.y) < (eatR)*(eatR)){
+        foods.splice(i,1);
+        s.targetLen+=1; s.eaten+=1;
+        if(s.isPlayer)SFX.eat();
+        if(s.targetLen>400)s.targetLen=400;
+      }
+    }
+  });
+  // keep foods topped up
+  if(foods.length<330 && Math.random()<0.5){
+    for(let i=0;i<4;i++){
+      const x=rand(EDGE+20,WORLD.w-EDGE-20), y=rand(EDGE+20,WORLD.h-EDGE-20);
+      if(insideDanger(x,y,10)||hitsEdge(x,y,20))continue;
+      foods.push({x,y,r:rand(3,5.5),color:FOOD_COLORS[(Math.random()*FOOD_COLORS.length)|0],value:1,pulse:0});
+    }
+  }
+
+  // ---- collisions ----
+  for(const s of snakes){
+    if(!s.alive||s.invuln>0)continue;
+    const hr=s.thick*0.55+2;
+    // 1) danger zones -> die
+    const dz=insideDanger(s.x,s.y,0);
+    if(dz){ s.killedBy=null; blastSnake(s,'danger'); continue; }
+    // 2) deadly red edge -> die
+    if(hitsEdge(s.x,s.y,2)){ blastSnake(s,'wall'); continue; }
+    // 3) hit another snake's body -> YOU blast (classic rule!)
+    let killer=null;
+    // head-to-head first
+    for(const o of snakes){
+      if(o===s||!o.alive)continue;
+      const d=Math.hypot(o.x-s.x,o.y-s.y);
+      if(d < hr + o.thick*0.55+2){
+        // both heads: smaller blasts (tie = both blast)
+        if(s.segs.length < o.segs.length){ killer=o; }
+        else if(s.segs.length > o.segs.length){ /* other will die on its own check; this one lives */ }
+        else { // tie: both blast, credit nobody
+          s.killedBy=o.name; s.killedByColor=o.color;
+          blastSnake(s,'snake');
+          if(o.invuln<=0){ o.killedBy=s.name; o.killedByColor=s.color; blastSnake(o,'snake'); }
+          killer='tie';
+        }
+        break;
+      }
+    }
+    if(killer==='tie'||!s.alive)continue;
+    if(killer) { /* handled below? actually s is smaller so s dies */ }
+    // body collisions (skip o head + first 6 segs of self-check not done)
+    if(s.alive && !killer){
+      outer:
+      for(const o of snakes){
+        if(o===s||!o.alive)continue;
+        const step = Math.max(1, (o.segs.length/60)|0);
+        for(let i=3;i<o.segs.length;i+=step){
+          const p=o.segs[i];
+          const rr=hr + o.thick*0.5;
+          const dx=p.x-s.x, dy=p.y-s.y;
+          if(dx*dx+dy*dy < rr*rr){ killer=o; break outer; }
+        }
+      }
+    }
+    if(killer && s.alive){
+      s.killedBy=killer.name; s.killedByColor=killer.color;
+      killer.kills++;
+      blastSnake(s,'snake');
+      // reward ping
+      floaters.push({x:killer.x,y:killer.y-24,text:`💥 ${killer.name} +1 kill!`,life:90,color:killer.color});
+      if(killer.isPlayer){ SFX.kill(); say(`💥 You smashed ${s.name}! Eat their balls! 🟢`); }
+      else if(s.isPlayer){ /* death screen handles */ }
+      else if(Math.random()<0.3) say(`💥 ${killer.name} smashed ${s.name} into balls!`);
+    }
+  }
+
+  // camera follows player (or killer spectacle if dead: stay)
+  if(me){
+    const tx=Math.max(VW/2-100,Math.min(WORLD.w-VW/2+100,me.x));
+    // world-to-screen uses cam; smooth
+    cam.x+=(me.x-cam.x)*Math.min(1,dt*6);
+    cam.y+=(me.y-cam.y)*Math.min(1,dt*6);
+    if(me.eaten>best){best=me.eaten;localStorage.setItem('snakeBlastBest',String(best));}
+  }
+
+  updateHUD();
+  if((time*2|0)!==((time-dt)*2|0)) updateBoard();
+}
+
+function updateHUD(){
+  const me=snakes[myId];
+  if(!me)return;
+  hLen.textContent=me.segs.length;
+  hEat.textContent=me.eaten;
+  hKills.textContent=me.kills;
+  hBest.textContent=best;
+  hAlive.textContent=snakes.filter(s=>s.alive).length;
+}
+function updateBoard(){
+  const sorted=[...snakes].sort((a,b)=>b.segs.length-a.segs.length).slice(0,10);
+  boardList.innerHTML='';
+  sorted.forEach(s=>{
+    const li=document.createElement('li');
+    if(s.isPlayer)li.className='me';
+    li.textContent=`${s.alive?'':'💥 '}${s.name} — ${s.segs.length}${s.isPlayer?' (YOU)':''}`;
+    li.style.color=s.isPlayer?'#4dff6a':s.color;
+    boardList.appendChild(li);
+  });
+}
+
+// ---------- DRAW ----------
+function worldToScreen(x,y){
+  const me=snakes[myId];
+  // scale: fit world units 1:1 but canvas shows 960x600 window around cam
+  const sx=x-cam.x+VW/2, sy=y-cam.y+VH/2;
+  return {x:sx,y:sy};
+}
+function draw(){
+  ctx.save();
+  if(shake>0)ctx.translate(rand(-shake,shake)*0.5,rand(-shake,shake)*0.5);
+  // bg
+  ctx.fillStyle='#07070f';
+  ctx.fillRect(-20,-20,VW+40,VH+40);
+
+  const me=snakes[myId];
+  const camX=cam.x-VW/2, camY=cam.y-VH/2;
+
+  // grid
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  const gs=120;
+  const x0=Math.max(0,Math.floor(camX/gs)*gs), y0=Math.max(0,Math.floor(camY/gs)*gs);
+  ctx.beginPath();
+  for(let x=x0;x<camX+VW;x+=gs){ const sx=x-camX; ctx.moveTo(sx,0); ctx.lineTo(sx,VH); }
+  for(let y=y0;y<camY+VH;y+=gs){ const sy=y-camY; ctx.moveTo(0,sy); ctx.lineTo(VW,sy); }
+  ctx.stroke();
+
+  // world border shadow + deadly red edge
+  const bx=-camX, by=-camY;
+  ctx.fillStyle='rgba(255,40,40,0.08)';
+  // edge bands
+  ctx.fillStyle='#3a0d0d';
+  ctx.fillRect(bx,by,WORLD.w,EDGE);
+  ctx.fillRect(bx,by+WORLD.h-EDGE,WORLD.w,EDGE);
+  ctx.fillRect(bx,by,EDGE,WORLD.h);
+  ctx.fillRect(bx+WORLD.w-EDGE,by,EDGE,WORLD.h);
+  // glowing red inner line = DEATH
+  ctx.strokeStyle='#ff2b2b'; ctx.lineWidth=4; ctx.shadowColor='#ff2b2b'; ctx.shadowBlur=18;
+  ctx.strokeRect(bx+EDGE,by+EDGE,WORLD.w-EDGE*2,WORLD.h-EDGE*2);
+  ctx.shadowBlur=0;
+  ctx.fillStyle='#ff6b6b'; ctx.font='bold 13px Arial'; ctx.textAlign='center';
+  ctx.fillText('☠️ DEADLY EDGE ☠️', bx+WORLD.w/2, by+EDGE-8);
+  // faint world bounds
+  ctx.strokeStyle='rgba(255,255,255,.12)'; ctx.lineWidth=2;
+  ctx.strokeRect(bx,by,WORLD.w,WORLD.h);
+
+  // obstacles (danger zones!)
+  for(const o of obstacles){
+    const sx=o.x-camX, sy=o.y-camY;
+    if(sx+o.w<-50||sy+o.h<-50||sx>VW+50||sy>VH+50)continue;
+    const pulse=0.5+0.5*Math.sin(o.pulse);
+    if(o.type==='lava'){
+      const g=ctx.createLinearGradient(sx,sy,sx,sy+o.h);
+      g.addColorStop(0,'#5a0d00'); g.addColorStop(1,'#a31600');
+      ctx.fillStyle=g;
+      ctx.strokeStyle=`rgba(255,${80+((pulse*80)|0)},0,0.95)`; ctx.lineWidth=3; ctx.shadowColor='#ff4400'; ctx.shadowBlur=12+pulse*10;
+      roundRect(sx,sy,o.w,o.h,12); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
+      // lava bubbles
+      ctx.fillStyle=`rgba(255,200,0,${0.25+pulse*0.3})`;
+      for(let i=0;i<Math.floor(o.w*o.h/9000);i++){
+        const bxx=sx+((i*97+o.pulse*30)%o.w), byy=sy+((i*61)%o.h);
+        ctx.beginPath(); ctx.arc(bxx,byy,3+pulse*3,0,7); ctx.fill();
+      }
+      ctx.fillStyle='#fff'; ctx.font='bold 15px Arial';
+      ctx.fillText('☠️ LAVA ☠️', sx+o.w/2, sy+o.h/2+5);
+    } else {
+      ctx.fillStyle='#1c1c26';
+      ctx.strokeStyle=`rgba(180,120,255,${0.7+pulse*0.3})`; ctx.lineWidth=3; ctx.shadowColor='#b983ff'; ctx.shadowBlur=10;
+      roundRect(sx,sy,o.w,o.h,12); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0;
+      // spikes triangles
+      ctx.fillStyle=`rgba(200,160,255,${0.5+pulse*0.4})`;
+      const n=Math.floor(o.w/26);
+      for(let i=0;i<n;i++){
+        const tx2=sx+10+i*26;
+        ctx.beginPath(); ctx.moveTo(tx2,sy+o.h-8); ctx.lineTo(tx2+9,sy+14); ctx.lineTo(tx2+18,sy+o.h-8); ctx.fill();
+      }
+      ctx.fillStyle='#e0c8ff'; ctx.font='bold 14px Arial';
+      ctx.fillText('☠️ SPIKES ☠️', sx+o.w/2, sy+16);
+    }
+  }
+
+  // foods
+  for(const f of foods){
+    const sx=f.x-camX, sy=f.y-camY;
+    if(sx<-20||sy<-20||sx>VW+20||sy>VH+20)continue;
+    const r=f.r+Math.sin(f.pulse)*0.8;
+    ctx.shadowColor=f.color; ctx.shadowBlur=8;
+    ctx.fillStyle=f.color;
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.fill();
+    ctx.shadowBlur=0;
+  }
+  // orbs (blast balls — bigger + glowing ring)
+  for(const o of orbs){
+    const sx=o.x-camX, sy=o.y-camY;
+    if(sx<-30||sy<-30||sx>VW+30||sy>VH+30)continue;
+    const r=o.r+Math.sin(o.pulse)*0.9;
+    if(o.t>0)ctx.globalAlpha=0.45;
+    ctx.shadowColor=o.color; ctx.shadowBlur=14;
+    ctx.fillStyle=o.color;
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.arc(sx-r*0.3,sy-r*0.3,r*0.28,0,7); ctx.fill();
+    ctx.globalAlpha=1;
+  }
+
+  // snakes (small first so big draw on top? actually draw in order, me last)
+  const order=[...snakes].sort((a,b)=>(a.isPlayer?1:0)-(b.isPlayer?1:0));
+  for(const s of order){
+    if(!s.alive)continue;
+    drawSnake(s, camX, camY);
+  }
+
+  // particles
+  for(const p of particles){
+    const sx=p.x-camX, sy=p.y-camY;
+    ctx.globalAlpha=Math.max(0,p.life/p.max);
+    ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(sx,sy,p.size,0,7); ctx.fill();
+    ctx.globalAlpha=1;
+  }
+  // floaters
+  ctx.textAlign='center'; ctx.font='bold 15px Arial';
+  for(const f of floaters){
+    const sx=f.x-camX, sy=f.y-camY;
+    ctx.globalAlpha=Math.min(1,f.life/40);
+    ctx.fillStyle='#000'; ctx.fillText(f.text,sx+1,sy+1);
+    ctx.fillStyle=f.color; ctx.fillText(f.text,sx,sy);
+    ctx.globalAlpha=1;
+  }
+
+  // low-HP style warning: danger proximity flash for player
+  if(me&&me.alive&&state==='play'){
+    const ahead={x:me.x+Math.cos(me.angle)*110,y:me.y+Math.sin(me.angle)*110};
+    if(insideDanger(ahead.x,ahead.y,20)||hitsEdge(ahead.x,ahead.y,26)){
+      if((time*4|0)%2===0){
+        ctx.fillStyle='rgba(255,40,40,0.16)'; ctx.fillRect(0,0,VW,VH);
+        ctx.fillStyle='#ff5b5b'; ctx.font='bold 20px Arial'; ctx.textAlign='center';
+        ctx.fillText('⚠️ DANGER AHEAD — TURN! ⚠️', VW/2, 34);
+        if(me.warnT<=0){ SFX.warn(); me.warnT=0.8; }
+      }
+    }
+    if(me.warnT>0)me.warnT-=1/60;
+    // spawn protection ring
+    if(me.invuln>0){
+      ctx.strokeStyle=`rgba(77,255,106,${0.4+0.4*Math.sin(time*10)})`; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(VW/2,VH/2,me.thick+16,0,7); ctx.stroke();
+    }
+  }
+
+  // vignette
+  const vg=ctx.createRadialGradient(VW/2,VH/2,VH*0.35,VW/2,VH/2,VH*0.85);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.45)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,VW,VH);
+
+  ctx.restore();
+
+  drawMini();
+}
+
+function drawSnake(s, camX, camY){
+  // body from tail to head
+  for(let i=s.segs.length-1;i>=1;i--){
+    const p=s.segs[i];
+    const sx=p.x-camX, sy=p.y-camY;
+    if(sx<-40||sy<-40||sx>VW+40||sy>VH+40)continue;
+    const t=i/s.segs.length; // 0 head → 1 tail
+    const r=s.thick*(1-t*0.55);
+    ctx.fillStyle=shade(s.color, -t*40);
+    ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.fill(); ctx.stroke();
+    // stripe
+    if(i%4===0){ ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(sx-r*0.25,sy-r*0.25,r*0.32,0,7); ctx.fill(); }
+  }
+  // head
+  const sx=s.x-camX, sy=s.y-camY;
+  const hr=s.thick+2;
+  if(s.boosting){ ctx.shadowColor=s.color; ctx.shadowBlur=20; }
+  ctx.fillStyle=s.color;
+  ctx.strokeStyle=s.isPlayer?'#ffffff':'rgba(0,0,0,.5)'; ctx.lineWidth=s.isPlayer?3:2;
+  ctx.beginPath(); ctx.arc(sx,sy,hr,0,7); ctx.fill(); ctx.stroke();
+  ctx.shadowBlur=0;
+  // eyes look along angle
+  const ex=Math.cos(s.angle), ey=Math.sin(s.angle);
+  const px=-ey, py=ex;
+  for(const side of [-1,1]){
+    const exx=sx+ex*hr*0.45+px*side*hr*0.5, eyy=sy+ey*hr*0.45+py*side*hr*0.5;
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(exx,eyy,hr*0.34,0,7); ctx.fill();
+    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(exx+ex*hr*0.14,eyy+ey*hr*0.14,hr*0.17,0,7); ctx.fill();
+  }
+  // crown for leader
+  const sorted=[...snakes].filter(q=>q.alive).sort((a,b)=>b.segs.length-a.segs.length);
+  if(sorted[0]===s&&s.segs.length>30){
+    ctx.font=`${Math.max(14,hr)}px Arial`; ctx.textAlign='center';
+    ctx.fillText('👑', sx, sy-hr-10);
+  }
+  // name + length
+  ctx.font='bold 12px Arial'; ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillText(`${s.name} (${s.segs.length})`, sx+1, sy-hr-1+1);
+  ctx.fillStyle=s.isPlayer?'#4dff6a':'#fff'; ctx.fillText(`${s.name} (${s.segs.length})`, sx, sy-hr-1);
+}
+
+function drawMini(){
+  const mw=mini.width, mh=mini.height;
+  mctx.clearRect(0,0,mw,mh);
+  mctx.fillStyle='#0a0a18'; mctx.fillRect(0,0,mw,mh);
+  const sx=x=>x/WORLD.w*mw, sy=y=>y/WORLD.h*mh;
+  // danger zones red
+  mctx.fillStyle='#ff2b2b';
+  obstacles.forEach(o=>mctx.fillRect(sx(o.x),sy(o.y),Math.max(3,o.w/WORLD.w*mw),Math.max(3,o.h/WORLD.h*mh)));
+  // deadly edge
+  mctx.strokeStyle='#ff2b2b'; mctx.lineWidth=3; mctx.strokeRect(1,1,mw-2,mh-2);
+  // orbs clusters faint
+  mctx.fillStyle='rgba(255,217,61,.5)';
+  for(let i=0;i<orbs.length;i+=3){ const o=orbs[i]; mctx.fillRect(sx(o.x)-1,sy(o.y)-1,2,2); }
+  // bots white/cyan dots
+  snakes.forEach(s=>{
+    if(!s.alive||s.isPlayer)return;
+    mctx.fillStyle=s.color;
+    mctx.beginPath(); mctx.arc(sx(s.x),sy(s.y),2.5,0,7); mctx.fill();
+  });
+  // player: green arrow + view box
+  const me=snakes[myId];
+  if(me){
+    const camX=cam.x-VW/2, camY=cam.y-VH/2;
+    mctx.strokeStyle='rgba(255,255,255,.5)'; mctx.lineWidth=1;
+    mctx.strokeRect(sx(camX),sy(camY),VW/WORLD.w*mw,VH/WORLD.h*mh);
+    const px=sx(me.x), py=sy(me.y);
+    mctx.save(); mctx.translate(px,py); mctx.rotate(me.angle);
+    mctx.fillStyle='#4dff6a';
+    mctx.beginPath(); mctx.moveTo(6,0); mctx.lineTo(-4,-4); mctx.lineTo(-4,4); mctx.fill();
+    mctx.restore();
+    mctx.strokeStyle='#4dff6a'; mctx.lineWidth=2;
+    mctx.beginPath(); mctx.arc(px,py,5,0,7); mctx.stroke();
+  }
+  // N label
+  mctx.fillStyle='rgba(255,255,255,.6)'; mctx.font='8px Arial'; mctx.textAlign='left';
+  mctx.fillText('MAP '+WORLD.w+'x'+WORLD.h, 3, mh-3);
+}
+
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function shade(hex, amt){
+  // hex like #rrggbb, amt -100..100
+  const n=parseInt(hex.slice(1),16);
+  let r=(n>>16)+amt, g=((n>>8)&255)+amt, b=(n&255)+amt;
+  r=Math.max(0,Math.min(255,r)); g=Math.max(0,Math.min(255,g)); b=Math.max(0,Math.min(255,b));
+  return `rgb(${r},${g},${b})`;
+}
+
+requestAnimationFrame(loop);
+updateBoard();
+</script>
+</body>
+</html>
