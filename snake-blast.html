@@ -75,6 +75,17 @@
   .skinBtn:hover { transform: scale(1.06); background: rgba(255,255,255,.15); }
   .skinBtn.sel { border-color: #4dff6a; background: rgba(77,255,106,.18); box-shadow: 0 0 12px rgba(77,255,106,.5); }
   .skinSwatch { display: inline-block; width: 34px; height: 12px; border-radius: 999px; margin-right: 6px; vertical-align: middle; }
+  /* in-game chat */
+  #chatLog { height: 150px; overflow-y: auto; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.15);
+    border-radius: 10px; padding: 8px; margin-top: 6px; font-size: 12.5px; line-height: 1.55; }
+  #chatLog .sys { color: #888; font-style: italic; }
+  #chatLog .me { color: #4dff6a; }
+  #chatForm { display: flex; gap: 6px; margin-top: 6px; }
+  #chatInput { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25);
+    background: rgba(0,0,0,.5); color: white; font-size: 13px; outline: none; }
+  #chatInput:focus { border-color: #4dff6a; }
+  #chatSend { padding: 8px 14px; border-radius: 999px; border: none; cursor: pointer; font-weight: 800;
+    background: linear-gradient(45deg,#22c55e,#16a34a); color: white; }
   @media (max-width: 800px){ #side{width:min(960px,96vw); flex:none;} #miniWrap{ transform: scale(.8); transform-origin: top right; } }
 </style>
 </head>
@@ -141,6 +152,14 @@
   <div>🟥 <b>Lava blocks</b> &amp; <b>spike pits</b> scattered on the map</div>
   <div>🟥 <b>Red world edge</b> — don't touch!</div>
   <div>🗺️ Red squares on the <b>MAP</b> = danger. Avoid!</div>
+  <hr style="border-color:#333">
+  <span class="how">💬 SNAKE CHAT</span>
+  <div>Press <kbd>C</kbd> or <kbd>Enter</kbd> to type — the bot snakes talk back! 😂</div>
+  <div id="chatLog"></div>
+  <div id="chatForm">
+    <input id="chatInput" maxlength="80" placeholder="Say something…" autocomplete="off">
+    <button id="chatSend">➤</button>
+  </div>
   <hr style="border-color:#333">
   <span class="how">🗺️ MAP + LEADERBOARD</span>
   <div>Green arrow = you • dots = enemies • red = danger</div>
@@ -242,6 +261,67 @@ function renderSkinRows(){
 function rand(a,b){ return a + Math.random()*(b-a); }
 function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 function say(t){ feed.textContent=t; feedT=240; }
+
+// ---------- IN-GAME CHAT (you + trash-talking bot snakes!) ----------
+const chatLog=el('chatLog'), chatInput=el('chatInput');
+let chatT=10; // ambient bot chatter timer
+const CHAT_LINES = {
+  hello: ['yo! 🐍','heyy! gl hf!','welcome to the thunderdome 😎','hi!! watch out for my tail','yo yo, free hugs (lethal ones)'],
+  taunt: ['come get these balls 😤','my tail is MINE, back off','is that a worm or a snack? 🪱','u look tasty today','catch me if u can 💨','i pay rent in this swamp'],
+  kill: ['BLASTED!! 💥 who wants fries with that','sit DOWN 😎','thats what u get for touching the goods','LOL rekt','eat my dust (and my balls)'],
+  died: ['lag!! that was LAG 😭','my controller died i swear','brb crying','that was MY kill, thief!!','i meant to do that… tactical blast'],
+  react: ['RIP 💀','OOOOH 💥','F in chat','that was brutal lol','someone clip that 📼','yooo did u see that?!'],
+  reply: ['lol','fr fr','no u 😤','ok and??','say less','W','L + ratio + blast 💥','mhm sure buddy','plot twist: im the main character','skill issue (mine)'],
+  gg: ['gg! 👑','ggs only','gg, rematch??','gg that was fun!'],
+  scared: ['NOPE NOPE NOPE','too close!! 😱','my heart is beating so fast rn','i almost blasted myself lol'],
+};
+function chatPick(a){ return a[(Math.random()*a.length)|0]; }
+function chatAdd(name, color, text, cls){
+  if(!chatLog)return;
+  const d=document.createElement('div');
+  if(cls==='sys'){ d.className='sys'; d.textContent=text; }
+  else { d.innerHTML=''; const b=document.createElement('b'); b.style.color=color||'#fff'; b.textContent=name+': ';
+    d.appendChild(b); d.appendChild(document.createTextNode(text)); if(cls)d.className=cls; }
+  chatLog.appendChild(d);
+  while(chatLog.children.length>60)chatLog.removeChild(chatLog.firstChild);
+  chatLog.scrollTop=chatLog.scrollHeight;
+}
+function botSay(bot, text){
+  if(!bot||!bot.alive)return;
+  chatAdd(bot.name, bot.color, text);
+  bot.bubble={text: text.length>30?text.slice(0,29)+'…':text, t:4};
+}
+function botReplyToPlayer(playerText){
+  const aliveBots=snakes.filter(s=>!s.isPlayer&&s.alive);
+  if(!aliveBots.length)return;
+  const low=playerText.toLowerCase();
+  let line;
+  if(/\b(hi|hello|hey|yo|sup|howdy)\b/.test(low)) line=chatPick(CHAT_LINES.hello);
+  else if(/\bgg\b/.test(low)) line=chatPick(CHAT_LINES.gg);
+  else if(/noob|bad|trash|ez|easy/.test(low)) line=chatPick(['1v1 me then 😤','ok pro, prove it','talk to the tail','someone is mad lol']);
+  else if(/bye|gtg|leave/.test(low)) line=chatPick(['nooo stay!!','bye, feeding time for me then 😋','see ya, your balls will miss u']);
+  else if(/\?$/.test(low.trim())) line=chatPick(['yes. definitely. maybe.','idk im just a snake 🐍','ask the lava, it knows all','great question. anyway…']);
+  else line=chatPick(CHAT_LINES.reply);
+  const replier=aliveBots[(Math.random()*aliveBots.length)|0];
+  setTimeout(()=>{ if(state==='play')botSay(replier,line); }, 700+Math.random()*1400);
+  if(Math.random()<0.35){
+    const second=aliveBots[(Math.random()*aliveBots.length)|0];
+    if(second!==replier)setTimeout(()=>{ if(state==='play')botSay(second,chatPick(CHAT_LINES.reply)); }, 1800+Math.random()*1500);
+  }
+}
+function sendChat(){
+  const text=chatInput.value.trim();
+  if(!text)return;
+  chatAdd('YOU','#4dff6a',text,'me');
+  const me=snakes[myId];
+  if(me&&me.alive)me.bubble={text: text.length>30?text.slice(0,29)+'…':text, t:4};
+  tone(700,0.07,'sine',0.08,150);
+  chatInput.value='';
+  chatInput.blur();
+  botReplyToPlayer(text);
+}
+el('chatSend').addEventListener('click',()=>{ac();sendChat();});
+chatInput.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter')sendChat(); if(e.key==='Escape')chatInput.blur(); });
 
 function buildMap(){
   obstacles = [];
@@ -370,6 +450,10 @@ function startGame(){
   SFX.kill();
   const me = snakes[0];
   cam.x=me.x; cam.y=me.y;
+  // chat hello!
+  if(chatLog)chatLog.innerHTML='';
+  chatAdd('','',`— You joined the swamp! ${BOT_NAMES.slice(0,9).join(', ')} joined — say hi! (C to chat) —`,'sys');
+  setTimeout(()=>{ const g=snakes[1+((Math.random()*9)|0)]; if(g&&state==='play')botSay(g,chatPick(CHAT_LINES.hello)); }, 1200);
 }
 
 // ---------- INPUT ----------
@@ -378,14 +462,20 @@ let mouse={x:VW/2,y:VH/2,active:false,down:false};
 let touchSteer=null;
 
 window.addEventListener('keydown',e=>{
+  const typing = document.activeElement===chatInput;
+  if(typing){ if(e.key==='Escape')chatInput.blur(); return; } // typing = game keys off!
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
   if(e.repeat)return;
   keys[e.key.toLowerCase()]=true; keys[e.key]=true; ac();
   if(e.key==='m'||e.key==='M')el('muteBtn').click();
   if(e.key==='p'||e.key==='P')togglePause();
   if(e.key===' '){ if(state==='play'&&!paused) snakes[0].boosting=true; }
+  if(e.key==='c'||e.key==='C'){ if(state==='play'&&!paused){ chatInput.focus(); e.preventDefault(); } }
   if(e.key>='1'&&e.key<='6'){ const sk=SKINS[+e.key-1]; if(sk){ setSkin(sk.id); if(state==='play')say(`🎨 Skin: ${sk.name}!`); } }
-  if(e.key==='Enter' && (state==='menu'||state==='dead')){ ac(); startGame(); }
+  if(e.key==='Enter'){
+    if(state==='menu'||state==='dead'){ ac(); state==='menu'?startGame():respawnPlayer(); }
+    else if(state==='play'&&!paused) chatInput.focus();
+  }
 });
 window.addEventListener('keyup',e=>{
   keys[e.key.toLowerCase()]=false; keys[e.key]=false;
@@ -426,6 +516,7 @@ function respawnPlayer(){
   cam.x=fresh.x; cam.y=fresh.y;
   state='play'; deadBox.style.display='none';
   say('🐍 Fresh snake! Eat up and dodge red!');
+  chatAdd('','','— YOU respawned as a fresh snake! —','sys');
 }
 
 // ---------- DEATH → BLAST INTO BALLS ----------
@@ -459,6 +550,18 @@ function blastSnake(s, cause){
     if(orbs.length>900) orbs.shift();
   }
   floaters.push({x:s.x,y:s.y-20,text:`💥 ${s.name} BLASTED! +${n} balls!`,life:110,color:'#ffd93d'});
+  // chat reactions to the blast!
+  if(cause==='snake' && s.killedBy){
+    const killer=snakes.find(q=>q.name===s.killedBy&&q.alive);
+    if(killer&&!killer.isPlayer)setTimeout(()=>botSay(killer,chatPick(CHAT_LINES.kill)),600);
+    if(s.isPlayer&&killer&&!killer.isPlayer)setTimeout(()=>botSay(killer,chatPick(['ur balls taste great 😋','thanks for the snack!!','shoulda watched the tail 😎'])),2200);
+    if(!s.isPlayer&&killer&&killer.isPlayer){
+      const w=snakes.filter(q=>!q.isPlayer&&q.alive&&q!==s);
+      if(w.length)setTimeout(()=>botSay(w[(Math.random()*w.length)|0],chatPick(CHAT_LINES.react)),900);
+    }
+  } else if(!s.isPlayer && Math.random()<0.4){
+    setTimeout(()=>{ const w=snakes.filter(q=>!q.isPlayer&&q.alive); if(w.length&&state==='play')botSay(w[(Math.random()*w.length)|0],chatPick(CHAT_LINES.died)); },800);
+  }
   if(s.isPlayer){
     state='dead';
     setTimeout(()=>{
@@ -600,6 +703,14 @@ function update(dt){
   orbs.forEach(o=>{o.pulse+=dt*5; if(o.t>0)o.t-=dt; o.x+=o.vx*dt; o.y+=o.vy*dt; o.vx*=0.96; o.vy*=0.96;});
   particles=particles.filter(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.grav*dt;p.life--;return p.life>0;});
   floaters=floaters.filter(f=>{f.y-=28*dt;f.life--;return f.life>0;});
+  // speech bubbles fade + bots randomly run their mouths 😂
+  snakes.forEach(s=>{ if(s.bubble){ s.bubble.t-=dt; if(s.bubble.t<=0)s.bubble=null; } });
+  chatT-=dt;
+  if(chatT<=0){
+    chatT=rand(9,20);
+    const talkers=snakes.filter(s=>!s.isPlayer&&s.alive);
+    if(talkers.length&&Math.random()<0.8)botSay(talkers[(Math.random()*talkers.length)|0],chatPick(CHAT_LINES.taunt));
+  }
 
   const me=snakes[myId];
 
@@ -994,6 +1105,21 @@ function drawSnake(s, camX, camY){
   ctx.font='bold 12px Arial'; ctx.textAlign='center';
   ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillText(`${s.name} (${s.segs.length})`, sx+1, sy-hr-1+1);
   ctx.fillStyle=s.isPlayer?'#4dff6a':'#fff'; ctx.fillText(`${s.name} (${s.segs.length})`, sx, sy-hr-1);
+  // 💬 speech bubble
+  if(s.bubble){
+    ctx.font='12px Arial';
+    const tw=Math.min(220,ctx.measureText(s.bubble.text).width+16);
+    const bx2=sx-tw/2, by2=sy-hr-52;
+    ctx.fillStyle='rgba(0,0,0,0.78)';
+    roundRect(bx2,by2,tw,22,8); ctx.fill();
+    ctx.strokeStyle=s.color; ctx.lineWidth=1.5;
+    roundRect(bx2,by2,tw,22,8); ctx.stroke();
+    // little tail triangle
+    ctx.fillStyle='rgba(0,0,0,0.78)';
+    ctx.beginPath(); ctx.moveTo(sx-5,by2+22); ctx.lineTo(sx+5,by2+22); ctx.lineTo(sx,by2+29); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.textAlign='center';
+    ctx.fillText(s.bubble.text.length>30?s.bubble.text.slice(0,29)+'…':s.bubble.text, sx, by2+15);
+  }
 }
 
 function drawMini(){
