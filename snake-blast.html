@@ -45,14 +45,30 @@
   #nickInput { padding: 10px 18px; font-size: 16px; font-weight: 800; text-align: center; border-radius: 999px;
     border: 2px solid rgba(255,255,255,.3); background: rgba(0,0,0,.5); color: white; outline: none; width: 240px; }
   #nickInput:focus { border-color: #4dff6a; }
-  /* 3D HUD overlays */
-  #board3d { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,217,61,.5);
-    border-radius: 10px; padding: 8px 12px; font-size: 12px; line-height: 1.6; min-width: 170px; pointer-events: none; }
-  #board3d h4 { margin: 0 0 4px 0; font-size: 13px; color: #ffd93d; }
-  #board3d .me { color: #4dff6a; font-weight: 800; }
-  #len3d { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.2);
-    border-radius: 10px; padding: 8px 14px; font-size: 14px; font-weight: 800; pointer-events: none; }
-  #len3d small { display: block; font-size: 11px; color: #aaa; font-weight: 400; }
+  /* 3D HUD overlays — bright Snake.io style */
+  #board3d { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,.93); color: #333;
+    border: 2px solid rgba(255,180,0,.7); border-radius: 14px; padding: 8px 12px; font-size: 12px;
+    line-height: 1.6; min-width: 170px; pointer-events: none; box-shadow: 0 3px 12px rgba(0,0,0,.25); }
+  #board3d h4 { margin: 0 0 4px 0; font-size: 13px; color: #e89b00; }
+  #board3d .me { color: #0a9b3c; font-weight: 800; }
+  #len3d { position: absolute; bottom: 10px; left: 10px; background: rgba(255,255,255,.93); color: #222;
+    border: 2px solid rgba(0,0,0,.12); border-radius: 14px; padding: 8px 14px; font-size: 15px;
+    font-weight: 800; pointer-events: none; box-shadow: 0 3px 12px rgba(0,0,0,.25); }
+  #len3d small { display: block; font-size: 11px; color: #777; font-weight: 400; }
+  /* virtual joystick + boost button (Snake.io mobile controls) */
+  #joyBase { position: absolute; width: 120px; height: 120px; border-radius: 50%; display: none;
+    background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.55); pointer-events: none; z-index: 4; }
+  #joyKnob { position: absolute; width: 54px; height: 54px; border-radius: 50%; left: 33px; top: 33px;
+    background: rgba(255,255,255,.85); box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+  #boostBtn { position: absolute; right: 14px; bottom: 176px; width: 74px; height: 74px; border-radius: 50%;
+    display: none; align-items: center; justify-content: center; font-size: 34px; z-index: 4;
+    background: linear-gradient(180deg,#ffe066,#ffb300); border: 3px solid #fff;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4); user-select: none; -webkit-user-select: none; touch-action: none; }
+  #boostBtn.on { transform: scale(.9); filter: brightness(1.2); }
+  .skinArrow { padding: 8px 16px; border-radius: 999px; border: 2px solid rgba(255,255,255,.25);
+    background: rgba(255,255,255,.08); color: white; font-size: 20px; font-weight: 800; cursor: pointer; }
+  .skinArrow:hover { background: rgba(255,255,255,.2); }
+  #skinPickRow { display: flex; gap: 8px; align-items: center; justify-content: center; }
   #vig3d { position: absolute; inset: 0; border-radius: 12px; pointer-events: none;
     background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.5) 100%); }
   #dmgFlash { position: absolute; inset: 0; border-radius: 12px; pointer-events: none;
@@ -123,7 +139,7 @@
   <div class="pill red">💥 Kills: <span id="hKills">0</span></div>
   <div class="pill">🏆 Best: <span id="hBest">0</span></div>
   <div class="pill">🐍 Alive: <span id="hAlive">0</span></div>
-  <div class="pill">⚡ Boost: <span>SPACE / click</span></div>
+  <div class="pill">⚡ Boost: <span>SPACE / click / ⚡</span></div>
 </div>
 
 <div id="layout">
@@ -135,6 +151,8 @@
   <div id="warn3d">⚠️ DANGER AHEAD — TURN! ⚠️</div>
   <div id="board3d"><h4>🏆 Leaderboard</h4><div id="board3dRows"></div></div>
   <div id="len3d">📏 0<small>Rank #1 • Best 0</small></div>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <div id="boostBtn">⚡</div>
   <div id="webglErr"><h2>😢 3D failed to load</h2><p>Snake Blast 3D needs WebGL + internet (for the three.js library).<br>Check your connection and reload!</p></div>
   <div id="miniWrap"><div>🗺️ MAP</div><canvas id="mini" width="150" height="150"></canvas></div>
   <div id="menu">
@@ -154,10 +172,14 @@
       <span><span class="dot" style="background:#00f0ff"></span> enemy snakes</span>
     </div>
     <div style="margin-top:10px;font-weight:800;color:#4dff6a;letter-spacing:1px;">🎨 PICK YOUR SNAKE SKIN</div>
-    <canvas id="skinPreview" width="300" height="110"></canvas>
+    <div id="skinPickRow">
+      <button class="skinArrow" id="skinPrev">‹</button>
+      <canvas id="skinPreview" width="300" height="110"></canvas>
+      <button class="skinArrow" id="skinNext">›</button>
+    </div>
     <div id="skinRow"></div>
     <button class="epic" id="btnPlay">▶ PLAY!</button>
-    <p style="font-size:13px"><kbd>Mouse</kbd> / <kbd>WASD</kbd> / <kbd>←↑↓→</kbd> steer • <kbd>SPACE</kbd> / <kbd>click</kbd> / <kbd>double-tap</kbd> boost • <kbd>1</kbd>–<kbd>6</kbd> change skin • <kbd>P</kbd> pause • works on 📱 touch!</p>
+    <p style="font-size:13px"><kbd>Mouse</kbd> / <kbd>WASD</kbd> / <kbd>←↑↓→</kbd> steer • <kbd>SPACE</kbd> / <kbd>click</kbd> / <kbd>⚡ button</kbd> boost • 📱 drag = joystick • <kbd>1</kbd>–<kbd>6</kbd> change skin • <kbd>P</kbd> pause</p>
   </div>
   <div id="dead">
     <h2 id="deadTitle">💥 YOU BLASTED! 💥</h2>
@@ -174,10 +196,10 @@
 </div>
 <aside id="side">
   <span class="how">🎮 HOW TO PLAY</span>
-  <div>🐍 Steer with <b>mouse</b>, <kbd>WASD</kbd> or <kbd>←↑↓→</kbd> / touch-drag</div>
+  <div>🐍 Steer with <b>mouse</b>, <kbd>WASD</kbd> or 📱 joystick-drag</div>
   <div>🟢 Eat little balls → <b>snake gets bigger</b></div>
   <div>💥 Head hits a snake body → <b>you BLAST into balls</b> for others to eat!</div>
-  <div>⚡ <kbd>SPACE</kbd>/click = boost (drops balls, shrinks you!)</div>
+  <div>⚡ <kbd>SPACE</kbd>/click/<kbd>⚡</kbd> = boost (drops balls, shrinks you!)</div>
   <div>👑 Outlive + out-eat the 9 bot snakes!</div>
   <hr style="border-color:#333">
   <span class="warn">☠️ DANGER = DEATH</span>
@@ -295,6 +317,15 @@ function renderSkinRows(){
     });
   });
 }
+// ‹ › arrows cycle skins Snake.io style (preview updates live!)
+function cycleSkin(dir){
+  const i=SKINS.findIndex(s=>s.id===playerSkin);
+  const n=SKINS[(i+dir+SKINS.length)%SKINS.length];
+  setSkin(n.id);
+  if(state==='play')say(`🎨 Skin: ${n.name}!`);
+}
+el('skinPrev').addEventListener('click',()=>{ac();cycleSkin(-1);});
+el('skinNext').addEventListener('click',()=>{ac();cycleSkin(1);});
 
 function rand(a,b){ return a + Math.random()*(b-a); }
 function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
@@ -533,13 +564,49 @@ function canvasPos(e){
 canvas.addEventListener('mousemove',e=>{ const p=canvasPos(e); mouse.x=p.x; mouse.y=p.y; mouse.active=true; });
 canvas.addEventListener('mousedown',e=>{ ac(); mouse.down=true; if(state==='play'){const me=snakes[myId]; if(me)me.boosting=true;} });
 window.addEventListener('mouseup',()=>{ mouse.down=false; snakes.forEach(s=>{ if(s.isPlayer) s.boosting=false; }); });
-// touch: drag to steer, double-tap-hold to boost
-let lastTap=0;
-canvas.addEventListener('touchstart',e=>{ ac(); const t=e.touches[0]; const p=canvasPos(t); touchSteer={x:p.x,y:p.y}; mouse.active=false;
-  const now=performance.now(); if(now-lastTap<300 && state==='play'){const me=snakes[myId]; if(me)me.boosting=true;} lastTap=now;
-},{passive:true});
-canvas.addEventListener('touchmove',e=>{ const t=e.touches[0]; const p=canvasPos(t); touchSteer={x:p.x,y:p.y}; e.preventDefault(); },{passive:false});
-canvas.addEventListener('touchend',()=>{ touchSteer=null; snakes.forEach(s=>{ if(s.isPlayer) s.boosting=false; }); });
+// 📱 Snake.io-style virtual joystick (drag anywhere!) + ⚡ boost button
+let joyId=null, joyOX=0, joyOY=0;
+const joyBase=el('joyBase'), joyKnob=el('joyKnob'), boostBtn=el('boostBtn');
+if('ontouchstart' in window||navigator.maxTouchPoints>0) boostBtn.style.display='flex';
+function joyShow(cx,cy){
+  const wr=document.getElementById('wrap').getBoundingClientRect();
+  joyBase.style.display='block';
+  joyBase.style.left=(cx-wr.left-60)+'px';
+  joyBase.style.top=(cy-wr.top-60)+'px';
+  joyKnob.style.transform='translate(0px,0px)';
+}
+function joyMove(cx,cy){
+  let dx=cx-joyOX, dy=cy-joyOY;
+  const d=Math.hypot(dx,dy);
+  if(d<12){ touchSteer=null; joyKnob.style.transform='translate(0px,0px)'; return; }
+  const cl=Math.min(d,55); dx=dx/d*cl; dy=dy/d*cl;
+  joyKnob.style.transform=`translate(${dx}px,${dy}px)`;
+  touchSteer={x:VW/2+dx*2.2, y:VH/2+dy*2.2};
+}
+function joyHide(){ joyId=null; touchSteer=null; joyBase.style.display='none'; }
+canvas.addEventListener('touchstart',e=>{ ac(); mouse.active=false;
+  if(joyId!==null) return;
+  const t=e.changedTouches[0];
+  joyId=t.identifier; joyOX=t.clientX; joyOY=t.clientY;
+  joyShow(t.clientX,t.clientY);
+  e.preventDefault();
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  for(const t of e.changedTouches) if(t.identifier===joyId) joyMove(t.clientX,t.clientY);
+  e.preventDefault();
+},{passive:false});
+const joyEnd=e=>{ for(const t of e.changedTouches) if(t.identifier===joyId) joyHide(); };
+canvas.addEventListener('touchend',joyEnd);
+canvas.addEventListener('touchcancel',joyEnd);
+// ⚡ boost button (hold it!)
+const boostOn=e=>{ e.preventDefault(); ac(); const me=snakes[myId];
+  if(me&&state==='play')me.boosting=true; boostBtn.classList.add('on'); };
+const boostOff=e=>{ if(e)e.preventDefault(); const me=snakes[myId];
+  if(me)me.boosting=false; boostBtn.classList.remove('on'); };
+boostBtn.addEventListener('pointerdown',boostOn);
+boostBtn.addEventListener('pointerup',boostOff);
+boostBtn.addEventListener('pointerleave',boostOff);
+boostBtn.addEventListener('pointercancel',boostOff);
 
 el('btnPlay').addEventListener('click',()=>{ac();readNickname();startGame();});
 el('btnRespawn').addEventListener('click',()=>{ac();respawnPlayer();});
@@ -928,22 +995,25 @@ const MAXSEG=2600, MAXF=950, MAXO=950, MAXP=1000;
 function makeGroundTexture(){
   const c=document.createElement('canvas'); c.width=c.height=256;
   const g=c.getContext('2d');
-  g.fillStyle='#0a0a17'; g.fillRect(0,0,256,256);
-  // subtle hex pattern like the classic io games
-  g.strokeStyle='rgba(140,160,255,0.20)'; g.lineWidth=2;
-  const R=32, W2=Math.sqrt(3)*R;
-  for(let r=-1;r<256/(R*1.5)+1;r++){
-    for(let q=-1;q<256/W2+1;q++){
-      const cx=q*W2+(r%2?W2/2:0), cy=r*R*1.5;
-      g.beginPath();
-      for(let k=0;k<=6;k++){ const a=Math.PI/3*k+Math.PI/6;
-        const px=cx+R*Math.cos(a), py=cy+R*Math.sin(a);
-        k?g.lineTo(px,py):g.moveTo(px,py); }
-      g.stroke();
-    }
-  }
+  // bright cream checkerboard, just like Snake.io's arena floor!
+  g.fillStyle='#f4e7c5'; g.fillRect(0,0,256,256);
+  g.fillStyle='#e9d3a1'; g.fillRect(0,0,128,128); g.fillRect(128,128,128,128);
+  g.strokeStyle='rgba(150,115,60,0.35)'; g.lineWidth=2;
+  g.strokeRect(0,0,128,128); g.strokeRect(128,0,128,128);
+  g.strokeRect(0,128,128,128); g.strokeRect(128,128,128,128);
   const t=new THREE.CanvasTexture(c);
-  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(16,16);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(22,22);
+  return t;
+}
+function makeStripeTexture(){
+  // red/white caution stripes for the arena walls, Snake.io style!
+  const c=document.createElement('canvas'); c.width=64; c.height=64;
+  const g=c.getContext('2d');
+  g.fillStyle='#ffffff'; g.fillRect(0,0,64,64);
+  g.fillStyle='#e33';
+  g.fillRect(0,0,16,64); g.fillRect(32,0,16,64);
+  const t=new THREE.CanvasTexture(c);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
   return t;
 }
 
@@ -955,29 +1025,32 @@ function initThree(){
     renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     renderer.setSize(VW,VH,false);
     const scene=new THREE.Scene();
-    scene.background=new THREE.Color(0x05050f);
-    scene.fog=new THREE.Fog(0x05050f, 550, 1700);
+    scene.background=new THREE.Color(0x8ecfee); // bright daylight sky, Snake.io style!
+    scene.fog=new THREE.Fog(0x8ecfee, 600, 1900);
     const camera=new THREE.PerspectiveCamera(62, VW/VH, 1, 6000);
     camera.position.set(SPAWN.x, 300, SPAWN.y+300);
-    scene.add(new THREE.HemisphereLight(0xbfd8ff, 0x241335, 1.0));
-    const sun=new THREE.DirectionalLight(0xfff2d8, 0.85);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xcbb27a, 1.15));
+    const sun=new THREE.DirectionalLight(0xfff6e0, 1.0);
     sun.position.set(800,1400,500); scene.add(sun);
     // ground
     const ground=new THREE.Mesh(
       new THREE.PlaneGeometry(WORLD.w+1000, WORLD.h+1000),
-      new THREE.MeshStandardMaterial({map:makeGroundTexture(), roughness:.95, metalness:0}));
+      new THREE.MeshStandardMaterial({map:makeGroundTexture(), roughness:.9, metalness:0}));
     ground.rotation.x=-Math.PI/2;
     ground.position.set(WORLD.w/2, 0, WORLD.h/2);
     scene.add(ground);
-    // deadly red edge: glowing strip + dark outer wall
+    // red/white striped arena walls — touch = death!
     const edge=new THREE.Group();
-    const stripM=new THREE.MeshBasicMaterial({color:0xff2b2b});
-    const darkM=new THREE.MeshBasicMaterial({color:0x2a0808});
+    const darkM=new THREE.MeshBasicMaterial({color:0x2a6e96});
+    const stripeTex=makeStripeTexture();
+    const wallMat=(len)=>{ const t=stripeTex.clone(); t.needsUpdate=true;
+      t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(Math.max(1,Math.round(len/46)),1);
+      return new THREE.MeshBasicMaterial({map:t}); };
     const mk=(w,h,d,x,y,z,m)=>{ const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
       b.position.set(x,y,z); edge.add(b); };
-    const E=EDGE, Wd=WORLD.w, Ht=WORLD.h;
-    mk(Wd,26,10, Wd/2,13,E, stripM); mk(Wd,26,10, Wd/2,13,Ht-E, stripM);
-    mk(10,26,Ht, E,13,Ht/2, stripM); mk(10,26,Ht, Wd-E,13,Ht/2, stripM);
+    const E=EDGE, Wd=WORLD.w, Ht=WORLD.h, WH=42;
+    mk(Wd,WH,10, Wd/2,WH/2,E, wallMat(Wd)); mk(Wd,WH,10, Wd/2,WH/2,Ht-E, wallMat(Wd));
+    mk(10,WH,Ht, E,WH/2,Ht/2, wallMat(Ht)); mk(10,WH,Ht, Wd-E,WH/2,Ht/2, wallMat(Ht));
     mk(Wd+200,90,40, Wd/2,45,E-30, darkM); mk(Wd+200,90,40, Wd/2,45,Ht-E+30, darkM);
     mk(40,90,Ht+200, E-30,45,Ht/2, darkM); mk(40,90,Ht+200, Wd-E+30,45,Ht/2, darkM);
     scene.add(edge);
@@ -987,7 +1060,7 @@ function initThree(){
     ring.rotation.x=-Math.PI/2; ring.position.set(SPAWN.x,1.5,SPAWN.y); scene.add(ring);
     // instanced bodies / food / orbs
     const bodies=new THREE.InstancedMesh(new THREE.SphereGeometry(1,12,10),
-      new THREE.MeshStandardMaterial({roughness:.32, metalness:.08}), MAXSEG);
+      new THREE.MeshPhongMaterial({shininess:90, specular:0x777777}), MAXSEG); // glossy Snake.io shine!
     bodies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     bodies.frustumCulled=false; scene.add(bodies);
     const foodMesh=new THREE.InstancedMesh(new THREE.SphereGeometry(1,8,6),
@@ -1006,6 +1079,7 @@ function initThree(){
       transparent:true, opacity:.95, depthWrite:false, sizeAttenuation:true}));
     points.frustumCulled=false; scene.add(points);
     T={renderer,scene,camera,bodies,foodMesh,orbMesh,points,ring,obs:null,heads:[],
+       crown:null, crownFor:-1,
        look:new THREE.Vector3(SPAWN.x,0,SPAWN.y),
        M:new THREE.Matrix4(), Q:new THREE.Quaternion(),
        V:new THREE.Vector3(), S:new THREE.Vector3(), C:new THREE.Color(),
@@ -1015,6 +1089,12 @@ function initThree(){
        eyeMat:new THREE.MeshBasicMaterial({color:0xffffff}),
        pupMat:new THREE.MeshBasicMaterial({color:0x111111})};
     buildMap3D();
+    // 👑 crown for the #1 snake, Snake.io style!
+    T.crown=makeTextSprite();
+    setSpriteText(T.crown,'👑','#ffd93d',44);
+    T.crown.scale.set(44,22,1);
+    T.crown.visible=false;
+    scene.add(T.crown);
     return true;
   }catch(err){ el('webglErr').style.display='flex'; return false; }
 }
@@ -1026,15 +1106,15 @@ function makeTextSprite(){
   sp.renderOrder=99; sp.userData={c, text:'@@@', color:'@@@'};
   return sp;
 }
-function setSpriteText(sp, text, color){
+function setSpriteText(sp, text, color, fontPx){
   const u=sp.userData;
-  if(u.text===text&&u.color===color) return;
-  u.text=text; u.color=color;
+  if(u.text===text&&u.color===color&&u.px===(fontPx||26)) return;
+  u.text=text; u.color=color; u.px=fontPx||26;
   const g=u.c.getContext('2d');
   g.clearRect(0,0,256,64);
-  g.font='bold 26px Arial'; g.textAlign='center';
+  g.font=`bold ${u.px}px Arial`; g.textAlign='center';
   g.lineWidth=6; g.strokeStyle='rgba(0,0,0,0.85)';
-  g.strokeText(text,128,40); g.fillStyle=color; g.fillText(text,128,40);
+  g.strokeText(text,128,42); g.fillStyle=color; g.fillText(text,128,42);
   sp.material.map.needsUpdate=true;
 }
 
@@ -1145,6 +1225,11 @@ function syncSnakes(){
       H.sayS.scale.set(120,30,1);
     } else H.sayS.visible=false;
   }
+  // 👑 crown floats above the biggest snake
+  let lead=null;
+  for(const s of snakes){ if(s.alive&&s.segs.length>30&&(!lead||s.segs.length>lead.segs.length)) lead=s; }
+  if(lead){ T.crown.visible=true; T.crown.position.set(lead.x,(lead.thick+2)*2.9+64,lead.y); }
+  else T.crown.visible=false;
   bodies.count=bi;
   bodies.instanceMatrix.needsUpdate=true;
   if(bodies.instanceColor) bodies.instanceColor.needsUpdate=true;
@@ -1254,8 +1339,8 @@ function drawPreview(){
   const W=pvCanvas.width, H=pvCanvas.height;
   const now=performance.now()/1000;
   pv.clearRect(0,0,W,H);
-  pv.fillStyle='#07070f'; pv.fillRect(0,0,W,H);
-  pv.strokeStyle='rgba(140,160,255,0.12)'; pv.lineWidth=1;
+  pv.fillStyle='#f4e7c5'; pv.fillRect(0,0,W,H); // same cream as the arena!
+  pv.strokeStyle='rgba(150,115,60,0.4)'; pv.lineWidth=1;
   for(let x=0;x<W;x+=26){ pv.beginPath(); pv.moveTo(x,0); pv.lineTo(x,H); pv.stroke(); }
   for(let y=0;y<H;y+=26){ pv.beginPath(); pv.moveTo(0,y); pv.lineTo(W,y); pv.stroke(); }
   const t=now*2.4, N=22;
@@ -1281,7 +1366,7 @@ function drawPreview(){
   pv.fillStyle='#111';
   pv.beginPath(); pv.arc(hx+5,hy-5,2.4,0,7); pv.fill();
   pv.beginPath(); pv.arc(hx+5,hy+5,2.4,0,7); pv.fill();
-  pv.fillStyle='#4dff6a'; pv.font='bold 12px Arial'; pv.textAlign='left';
+  pv.fillStyle='#0a7a2e'; pv.font='bold 12px Arial'; pv.textAlign='left';
   pv.fillText((SKINS.find(s=>s.id===playerSkin)||{name:''}).name, 8, 16);
 }
 
