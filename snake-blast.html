@@ -38,9 +38,12 @@
   #wrap { position: relative; width: 100%; }
   canvas#game { width: 100%; height: auto; aspect-ratio: 16/10; border: 3px solid #2bff5b55; border-radius: 12px; background: #05050f;
     box-shadow: 0 0 40px rgba(77,255,106,.18), 0 10px 50px rgba(0,0,0,.6); display: block; touch-action: none; cursor: crosshair; }
-  #miniWrap { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,.72); border: 2px solid rgba(255,255,255,.25);
+  #miniWrap { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,.72); border: 2px solid rgba(255,255,255,.25);
     border-radius: 10px; padding: 4px; text-align: center; }
   #miniWrap div { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #ffd93d; }
+  #nickInput { padding: 10px 18px; font-size: 16px; font-weight: 800; text-align: center; border-radius: 999px;
+    border: 2px solid rgba(255,255,255,.3); background: rgba(0,0,0,.5); color: white; outline: none; width: 240px; }
+  #nickInput:focus { border-color: #4dff6a; }
   #mini { display: block; border-radius: 6px; }
   #side { width: 290px; flex: 0 0 290px; background: rgba(255,255,255,.06); border: 1px solid rgba(77,255,106,.35);
     border-radius: 12px; padding: 14px 16px; font-size: 14px; line-height: 1.7; }
@@ -110,12 +113,13 @@
   <div id="menu">
     <h2>🐍 SNAKE BLAST 💥</h2>
     <p>
-      You start as a little snake in a <b>giant world</b> (see the <b style="color:#ffd93d">🗺️ MAP</b> top-right!).<br>
+      You start as a little snake in a <b>giant world</b> (see the <b style="color:#ffd93d">🗺️ MAP</b> bottom-right!).<br>
       👉 If <b>YOUR HEAD</b> hits another snake's body → <b style="color:#ff6b6b">YOU BLAST into a bunch of little balls!</b><br>
       👉 If <b>THEY</b> hit <b>YOU</b> → <b style="color:#4dff6a">THEY BLAST</b> and you eat their balls to <b>get BIGGER</b>! 🟢<br>
       👉 Eat glowing balls to grow. Boost to hunt — but boosting burns size!<br>
       <span class="danger-note">☠️ Dodge the <b>lava / spike DANGER ZONES</b> and the <b>red world edge</b> — touch them and you die!</span>
     </p>
+    <input id="nickInput" maxlength="12" placeholder="Nickname" autocomplete="off">
     <div id="legend">
       <span><span class="dot" style="background:#4dff6a"></span> you</span>
       <span><span class="dot" style="background:#ffd93d"></span> food balls (eat!)</span>
@@ -167,7 +171,6 @@
   <span class="how">🎨 SNAKE SKIN</span>
   <div>Press <kbd>1</kbd>–<kbd>6</kbd> or tap below. Spawns stay yours!</div>
   <div id="sideSkinRow"></div>
-  <div id="board"><h3>🏆 BIGGEST SNAKES</h3><ol id="boardList"></ol></div>
 </aside>
 </div>
 <a class="back" href="./index.html">← back to all games</a>
@@ -182,7 +185,15 @@ const mctx = mini.getContext('2d');
 const el = id => document.getElementById(id);
 const hLen=el('hLen'), hEat=el('hEat'), hKills=el('hKills'), hBest=el('hBest'), hAlive=el('hAlive'),
       feed=el('feed'), menu=el('menu'), deadBox=el('dead'), deadText=el('deadText'), deadTitle=el('deadTitle'),
-      boardList=el('boardList');
+      nickInput=el('nickInput');
+// slither-style nickname, remembered between visits
+let playerName = (localStorage.getItem('snakeBlastName')||'').trim() || 'YOU';
+nickInput.value = playerName==='YOU' ? '' : playerName;
+function readNickname(){
+  const v=(nickInput.value||'').trim().slice(0,12);
+  playerName = v || 'YOU';
+  try{ localStorage.setItem('snakeBlastName', playerName); }catch(e){}
+}
 
 // ---------- AUDIO ----------
 let audioCtx=null, muted=false;
@@ -312,7 +323,7 @@ function botReplyToPlayer(playerText){
 function sendChat(){
   const text=chatInput.value.trim();
   if(!text)return;
-  chatAdd('YOU','#4dff6a',text,'me');
+  chatAdd(playerName,'#4dff6a',text,'me');
   const me=snakes[myId];
   if(me&&me.alive)me.bubble={text: text.length>30?text.slice(0,29)+'…':text, t:4};
   tone(700,0.07,'sine',0.08,150);
@@ -356,7 +367,7 @@ function spawnFoods(n){
     foods.push({
       x: rand(EDGE+20, WORLD.w-EDGE-20),
       y: rand(EDGE+20, WORLD.h-EDGE-20),
-      r: rand(3,5.5),
+      r: rand(2.5,4.5),
       color: FOOD_COLORS[(Math.random()*FOOD_COLORS.length)|0],
       value: 1,
       pulse: Math.random()*6
@@ -437,9 +448,9 @@ function makeSnake(id, name, color, isPlayer){
 function startGame(){
   buildMap();
   foods=[]; orbs=[]; particles=[]; floaters=[];
-  spawnFoods(420);
+  spawnFoods(700);
   snakes=[];
-  snakes.push(makeSnake(0,'YOU','#4dff6a',true));
+  snakes.push(makeSnake(0,playerName,'#4dff6a',true));
   myId=0;
   for(let i=0;i<9;i++){
     snakes.push(makeSnake(i+1, BOT_NAMES[i%BOT_NAMES.length]+(i>=BOT_NAMES.length?' '+((i/BOT_NAMES.length)|0+2):''), BOT_COLORS[i%BOT_COLORS.length], false));
@@ -462,8 +473,9 @@ let mouse={x:VW/2,y:VH/2,active:false,down:false};
 let touchSteer=null;
 
 window.addEventListener('keydown',e=>{
-  const typing = document.activeElement===chatInput;
-  if(typing){ if(e.key==='Escape')chatInput.blur(); return; } // typing = game keys off!
+  const typing = document.activeElement===chatInput || document.activeElement===nickInput;
+  if(document.activeElement===chatInput){ if(e.key==='Escape')chatInput.blur(); return; } // typing = game keys off!
+  if(document.activeElement===nickInput){ if(e.key==='Enter'){ac();readNickname();startGame();} if(e.key==='Escape')nickInput.blur(); return; }
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();
   if(e.repeat)return;
   keys[e.key.toLowerCase()]=true; keys[e.key]=true; ac();
@@ -473,7 +485,8 @@ window.addEventListener('keydown',e=>{
   if(e.key==='c'||e.key==='C'){ if(state==='play'&&!paused){ chatInput.focus(); e.preventDefault(); } }
   if(e.key>='1'&&e.key<='6'){ const sk=SKINS[+e.key-1]; if(sk){ setSkin(sk.id); if(state==='play')say(`🎨 Skin: ${sk.name}!`); } }
   if(e.key==='Enter'){
-    if(state==='menu'||state==='dead'){ ac(); state==='menu'?startGame():respawnPlayer(); }
+    if(state==='menu'){ ac(); readNickname(); startGame(); }
+    else if(state==='dead'){ ac(); respawnPlayer(); }
     else if(state==='play'&&!paused) chatInput.focus();
   }
 });
@@ -496,7 +509,7 @@ canvas.addEventListener('touchstart',e=>{ ac(); const t=e.touches[0]; const p=ca
 canvas.addEventListener('touchmove',e=>{ const t=e.touches[0]; const p=canvasPos(t); touchSteer={x:p.x,y:p.y}; e.preventDefault(); },{passive:false});
 canvas.addEventListener('touchend',()=>{ touchSteer=null; snakes.forEach(s=>{ if(s.isPlayer) s.boosting=false; }); });
 
-el('btnPlay').addEventListener('click',()=>{ac();startGame();});
+el('btnPlay').addEventListener('click',()=>{ac();readNickname();startGame();});
 el('btnRespawn').addEventListener('click',()=>{ac();respawnPlayer();});
 el('restartBtn').addEventListener('click',()=>{ac();startGame();});
 el('pauseBtn').addEventListener('click',togglePause);
@@ -510,7 +523,7 @@ function togglePause(){
 function respawnPlayer(){
   const old = snakes[myId];
   const kills = old?old.kills:0, bestEaten = old?old.eaten:0;
-  const fresh = makeSnake(myId,'YOU','#4dff6a',true);
+  const fresh = makeSnake(myId,playerName,'#4dff6a',true);
   fresh.kills=kills; // keep run kills? no — fresh run, but keep best
   snakes[myId]=fresh;
   cam.x=fresh.x; cam.y=fresh.y;
@@ -760,12 +773,12 @@ function update(dt){
       }
     }
   });
-  // keep foods topped up
-  if(foods.length<330 && Math.random()<0.5){
-    for(let i=0;i<4;i++){
+  // keep foods topped up (slither packs the map with pellets!)
+  if(foods.length<550 && Math.random()<0.6){
+    for(let i=0;i<8;i++){
       const x=rand(EDGE+20,WORLD.w-EDGE-20), y=rand(EDGE+20,WORLD.h-EDGE-20);
       if(insideDanger(x,y,10)||hitsEdge(x,y,20))continue;
-      foods.push({x,y,r:rand(3,5.5),color:FOOD_COLORS[(Math.random()*FOOD_COLORS.length)|0],value:1,pulse:0});
+      foods.push({x,y,r:rand(2.5,4.5),color:FOOD_COLORS[(Math.random()*FOOD_COLORS.length)|0],value:1,pulse:0});
     }
   }
 
@@ -835,7 +848,6 @@ function update(dt){
   }
 
   updateHUD();
-  if((time*2|0)!==((time-dt)*2|0)) updateBoard();
 }
 
 function updateHUD(){
@@ -847,16 +859,38 @@ function updateHUD(){
   hBest.textContent=best;
   hAlive.textContent=snakes.filter(s=>s.alive).length;
 }
-function updateBoard(){
+// slither-style leaderboard (top-right) + your length (bottom-left), drawn on the canvas
+function drawOverlays(){
   const sorted=[...snakes].sort((a,b)=>b.segs.length-a.segs.length).slice(0,10);
-  boardList.innerHTML='';
-  sorted.forEach(s=>{
-    const li=document.createElement('li');
-    if(s.isPlayer)li.className='me';
-    li.textContent=`${s.alive?'':'💥 '}${s.name} — ${s.segs.length}${s.isPlayer?' (YOU)':''}`;
-    li.style.color=s.isPlayer?'#4dff6a':s.color;
-    boardList.appendChild(li);
+  const me=snakes[myId];
+  const myRank=[...snakes].sort((a,b)=>b.segs.length-a.segs.length).findIndex(s=>s.isPlayer)+1;
+  // leaderboard panel
+  ctx.textAlign='left';
+  const bw=196, bh=30+sorted.length*19;
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  roundRect(VW-bw-12,10,bw,bh,10); ctx.fill();
+  ctx.strokeStyle='rgba(255,217,61,0.5)'; ctx.lineWidth=1.5;
+  roundRect(VW-bw-12,10,bw,bh,10); ctx.stroke();
+  ctx.fillStyle='#ffd93d'; ctx.font='bold 14px Arial';
+  ctx.fillText('🏆 Leaderboard', VW-bw-2, 30);
+  ctx.font='12px Arial';
+  sorted.forEach((s,i)=>{
+    const y=48+i*19;
+    ctx.fillStyle=s.isPlayer?'#4dff6a':(s.alive?s.color:'#888');
+    ctx.fillText(`${i+1}. ${(s.name||'?').slice(0,12)}`, VW-bw-2, y);
+    ctx.textAlign='right';
+    ctx.fillText(`${s.alive?s.segs.length:'💥'}`, VW-22, y);
+    ctx.textAlign='left';
   });
+  // your length, bottom-left like slither.io
+  if(me){
+    ctx.fillStyle='rgba(0,0,0,0.55)';
+    roundRect(12,VH-58,210,46,10); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.font='bold 15px Arial';
+    ctx.fillText(`📏 ${me.name}: ${me.segs.length}`, 24, VH-38);
+    ctx.fillStyle='#aaa'; ctx.font='12px Arial';
+    ctx.fillText(myRank>0?`Rank #${myRank} of ${snakes.length} • Best ${best}`:`Best ${best}`, 24, VH-20);
+  }
 }
 
 // ---------- DRAW ----------
@@ -876,13 +910,25 @@ function draw(){
   const me=snakes[myId];
   const camX=cam.x-VW/2, camY=cam.y-VH/2;
 
-  // grid
-  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
-  const gs=120;
-  const x0=Math.max(0,Math.floor(camX/gs)*gs), y0=Math.max(0,Math.floor(camY/gs)*gs);
+  // slither-style hexagonal grid background
+  ctx.strokeStyle='rgba(255,255,255,0.055)'; ctx.lineWidth=1.5;
+  const HR=52, HW=Math.sqrt(3)*HR; // hex radius / width (flat-top hexes)
+  const rowH=HR*1.5;
+  const r0=Math.floor(camY/rowH)-1, r1=Math.floor((camY+VH)/rowH)+1;
   ctx.beginPath();
-  for(let x=x0;x<camX+VW;x+=gs){ const sx=x-camX; ctx.moveTo(sx,0); ctx.lineTo(sx,VH); }
-  for(let y=y0;y<camY+VH;y+=gs){ const sy=y-camY; ctx.moveTo(0,sy); ctx.lineTo(VW,sy); }
+  for(let r=r0;r<=r1;r++){
+    const cy=r*rowH;
+    const off=(r%2!==0)?HW/2:0;
+    const c0=Math.floor((camX-off)/HW)-1, c1=Math.floor((camX-off+VW)/HW)+1;
+    for(let c=c0;c<=c1;c++){
+      const cx=c*HW+off;
+      for(let k=0;k<6;k++){
+        const a1=Math.PI/180*(60*k), a2=Math.PI/180*(60*(k+1));
+        ctx.moveTo(cx-camX+HR*Math.cos(a1), cy-camY+HR*Math.sin(a1));
+        ctx.lineTo(cx-camX+HR*Math.cos(a2), cy-camY+HR*Math.sin(a2));
+      }
+    }
+  }
   ctx.stroke();
 
   // world border shadow + deadly red edge
@@ -1029,12 +1075,16 @@ function draw(){
 
   ctx.restore();
 
+  // slither-style HUD on top of everything
+  if(state==='play')drawOverlays();
+
   drawMini();
 }
 
 function skinBaseColor(s, i){
   if(s.skin==='rainbow') return `hsl(${(time*70+i*14)%360},95%,60%)`;
-  return shade(s.color, -(i/s.segs.length)*40);
+  // slither-style alternating bands + taper darker toward the tail
+  return shade(s.color, -(i/s.segs.length)*40 - (i%2?16:0));
 }
 function drawSnake(s, camX, camY){
   const skin=s.skin||'classic';
@@ -1053,7 +1103,7 @@ function drawSnake(s, camX, camY){
     ctx.shadowBlur=0;
     // ---- texture overlays ----
     if(skin==='classic'){
-      if(i%4===0){ ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.arc(sx-r*0.25,sy-r*0.25,r*0.32,0,7); ctx.fill(); }
+      ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.arc(sx-r*0.28,sy-r*0.3,r*0.3,0,7); ctx.fill();
     } else if(skin==='stripes'){
       if(i%6<3){ ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.arc(sx,sy,r*0.62,0,7); ctx.fill(); }
       else { ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.arc(sx-r*0.25,sy-r*0.25,r*0.3,0,7); ctx.fill(); }
@@ -1087,13 +1137,15 @@ function drawSnake(s, camX, camY){
     ctx.fillStyle='rgba(0,0,0,0.5)';
     ctx.beginPath(); ctx.arc(sx-hr*0.3,sy-hr*0.45,hr*0.2,0,7); ctx.fill();
   }
-  // eyes look along angle
+  // big slither-style eyes that look where you're going
   const ex=Math.cos(s.angle), ey=Math.sin(s.angle);
   const px=-ey, py=ex;
   for(const side of [-1,1]){
-    const exx=sx+ex*hr*0.45+px*side*hr*0.5, eyy=sy+ey*hr*0.45+py*side*hr*0.5;
-    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(exx,eyy,hr*0.34,0,7); ctx.fill();
-    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(exx+ex*hr*0.14,eyy+ey*hr*0.14,hr*0.17,0,7); ctx.fill();
+    const exx=sx+ex*hr*0.5+px*side*hr*0.55, eyy=sy+ey*hr*0.5+py*side*hr*0.55;
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(exx,eyy,hr*0.42,0,7); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(exx+ex*hr*0.18,eyy+ey*hr*0.18,hr*0.21,0,7); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(exx+ex*hr*0.18-hr*0.06,eyy+ey*hr*0.18-hr*0.06,hr*0.07,0,7); ctx.fill();
   }
   // crown for leader
   const sorted=[...snakes].filter(q=>q.alive).sort((a,b)=>b.segs.length-a.segs.length);
@@ -1182,7 +1234,6 @@ function shade(hex, amt){
 
 requestAnimationFrame(loop);
 renderSkinRows();
-updateBoard();
 </script>
 </body>
 </html>
