@@ -61,9 +61,9 @@
   #joyKnob { position: absolute; width: 54px; height: 54px; border-radius: 50%; left: 33px; top: 33px;
     background: rgba(255,255,255,.85); box-shadow: 0 2px 10px rgba(0,0,0,.4); }
   #boostBtn { position: absolute; right: 14px; bottom: 176px; width: 74px; height: 74px; border-radius: 50%;
-    display: none; align-items: center; justify-content: center; font-size: 34px; z-index: 4;
+    display: flex; align-items: center; justify-content: center; font-size: 34px; z-index: 4;
     background: linear-gradient(180deg,#ffe066,#ffb300); border: 3px solid #fff;
-    box-shadow: 0 4px 16px rgba(0,0,0,.4); user-select: none; -webkit-user-select: none; touch-action: none; }
+    box-shadow: 0 4px 16px rgba(0,0,0,.4); user-select: none; -webkit-user-select: none; touch-action: none; cursor: pointer; }
   #boostBtn.on { transform: scale(.9); filter: brightness(1.2); }
   .skinArrow { padding: 8px 16px; border-radius: 999px; border: 2px solid rgba(255,255,255,.25);
     background: rgba(255,255,255,.08); color: white; font-size: 20px; font-weight: 800; cursor: pointer; }
@@ -76,6 +76,12 @@
   #warn3d { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); color: #ff5b5b;
     font-weight: 800; font-size: 18px; text-shadow: 0 2px 6px #000; display: none; pointer-events: none;
     white-space: nowrap; }
+  /* Snake.io-style center announcements (kills, milestones) */
+  #banner { position: absolute; top: 34%; left: 50%; transform: translate(-50%,-50%) scale(.8); display: none;
+    text-align: center; pointer-events: none; z-index: 4; opacity: 0; transition: opacity .2s, transform .2s; }
+  #banner.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  #banner h2 { margin: 0; font-size: 34px; color: #fff; text-shadow: 0 0 18px rgba(255,150,0,.9), 0 3px 0 #a35b00, 0 5px 12px #000; }
+  #banner p { margin: 2px 0 0 0; font-size: 15px; font-weight: 800; color: #ffe27a; text-shadow: 0 2px 4px #000; }
   #webglErr { position: absolute; inset: 0; border-radius: 12px; display: none; flex-direction: column;
     align-items: center; justify-content: center; gap: 8px; background: rgba(0,0,0,.9); z-index: 8;
     text-align: center; padding: 20px; }
@@ -149,6 +155,7 @@
   <div id="vig3d"></div>
   <div id="dmgFlash"></div>
   <div id="warn3d">⚠️ DANGER AHEAD — TURN! ⚠️</div>
+  <div id="banner"><h2 id="bannerTitle"></h2><p id="bannerSub"></p></div>
   <div id="board3d"><h4>🏆 Leaderboard</h4><div id="board3dRows"></div></div>
   <div id="len3d">📏 0<small>Rank #1 • Best 0</small></div>
   <div id="joyBase"><div id="joyKnob"></div></div>
@@ -179,6 +186,7 @@
     </div>
     <div id="skinRow"></div>
     <button class="epic" id="btnPlay">▶ PLAY!</button>
+    <div id="menuBest" style="font-weight:800;color:#ffd93d;">🏆 Best: 0</div>
     <p style="font-size:13px"><kbd>Mouse</kbd> / <kbd>WASD</kbd> / <kbd>←↑↓→</kbd> steer • <kbd>SPACE</kbd> / <kbd>click</kbd> / <kbd>⚡ button</kbd> boost • 📱 drag = joystick • <kbd>1</kbd>–<kbd>6</kbd> change skin • <kbd>P</kbd> pause</p>
   </div>
   <div id="dead">
@@ -276,6 +284,7 @@ let time = 0, feedT = 0, shake = 0;
 let myId = 0;
 let best = parseInt(localStorage.getItem('snakeBlastBest')||'0',10)||0;
 hBest.textContent = best;
+el('menuBest').textContent = `🏆 Best: ${best}`;
 
 const BOT_NAMES = ['Venom','Slinky','Python','Noodle','Fang','Cobra','Wormy','Slyther','Zigzag','Boa','Snek','Anaconda'];
 const BOT_COLORS = ['#00f0ff','#ff4bd8','#ffd93d','#ff8c42','#b983ff','#ff5b5b','#4da6ff','#fffd7a','#7affd4','#ff9ff3'];
@@ -330,6 +339,23 @@ el('skinNext').addEventListener('click',()=>{ac();cycleSkin(1);});
 function rand(a,b){ return a + Math.random()*(b-a); }
 function dist2(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; }
 function say(t){ feed.textContent=t; feedT=240; }
+// Snake.io-style big center announcement (kills, milestones!)
+let bannerTO=null;
+function showBanner(title, sub){
+  el('bannerTitle').textContent=title;
+  el('bannerSub').textContent=sub||'';
+  const b=el('banner');
+  b.style.display='block';
+  requestAnimationFrame(()=>b.classList.add('show'));
+  if(bannerTO)clearTimeout(bannerTO);
+  bannerTO=setTimeout(()=>{ b.classList.remove('show'); setTimeout(()=>{b.style.display='none';},220); },2100);
+}
+// eat-combo: Snake.io's rising eat blip!
+let eatCombo=0, eatComboT=0;
+function comboBlip(){
+  eatCombo++; eatComboT=2.5;
+  tone(520+Math.min(eatCombo,24)*26, 0.08, 'sine', 0.1, 180);
+}
 
 // ---------- IN-GAME CHAT (you + trash-talking bot snakes!) ----------
 const chatLog=el('chatLog'), chatInput=el('chatInput');
@@ -425,6 +451,7 @@ function spawnFoods(n){
     foods.push({
       x: rand(EDGE+20, WORLD.w-EDGE-20),
       y: rand(EDGE+20, WORLD.h-EDGE-20),
+      vx: rand(-8,8), vy: rand(-8,8),
       r: rand(2.5,4.5),
       color: FOOD_COLORS[(Math.random()*FOOD_COLORS.length)|0],
       value: 1,
@@ -567,7 +594,6 @@ window.addEventListener('mouseup',()=>{ mouse.down=false; snakes.forEach(s=>{ if
 // 📱 Snake.io-style virtual joystick (drag anywhere!) + ⚡ boost button
 let joyId=null, joyOX=0, joyOY=0;
 const joyBase=el('joyBase'), joyKnob=el('joyKnob'), boostBtn=el('boostBtn');
-if('ontouchstart' in window||navigator.maxTouchPoints>0) boostBtn.style.display='flex';
 function joyShow(cx,cy){
   const wr=document.getElementById('wrap').getBoundingClientRect();
   joyBase.style.display='block';
@@ -684,7 +710,7 @@ function blastSnake(s, cause){
       if(state!=='dead')return;
       deadTitle.textContent = cause==='danger' ? '☠️ YOU HIT DANGER! ☠️' : cause==='wall' ? '🟥 YOU HIT THE WALL! 🟥' : '💥 YOU BLASTED! 💥';
       const killer = s.killedBy ? ` Killer: <b style="color:${s.killedByColor}">${s.killedBy}</b> — they get to eat your balls! 😱` : '';
-      deadText.innerHTML = `${cause==='danger'?'You touched a <b style="color:#ff5b5b">☠️ DANGER ZONE</b>. Dodge the red blocks!':cause==='wall'?'You touched the <b style="color:#ff5b5b">deadly red edge</b>. Stay inside!':`Your head hit <b style="color:${s.killedByColor||'#fff'}">${s.killedBy||'a snake'}</b>. Whoever's head hits, BLASTS!`}${killer}<br>📏 Length <b>${s.segs.length}</b> • 🟢 Eaten <b>${s.eaten}</b> • 💥 Kills <b>${s.kills}</b>`;
+      deadText.innerHTML = `${cause==='danger'?'You touched a <b style="color:#ff5b5b">☠️ DANGER ZONE</b>. Dodge the red blocks!':cause==='wall'?'You touched the <b style="color:#ff5b5b">deadly red edge</b>. Stay inside!':`Your head hit <b style="color:${s.killedByColor||'#fff'}">${s.killedBy||'a snake'}</b>. Whoever's head hits, BLASTS!`}${killer}<br>📏 Length <b>${s.segs.length}</b> • 🟢 Eaten <b>${s.eaten}</b> • 💥 Kills <b>${s.kills}</b> • 🏆 Best <b>${Math.max(best,s.eaten)}</b>`;
       deadBox.style.display='flex';
     }, 900);
     say(cause==='danger'?'☠️ You hit a DANGER ZONE and blasted into balls!':cause==='wall'?'🟥 The edge is deadly! You blasted!':`💥 You hit ${s.killedBy||'a snake'} and BLASTED into balls!`);
@@ -859,6 +885,7 @@ function update(dt){
   // ---- eating: head near orb/food ----
   snakes.forEach(s=>{
     if(!s.alive)return;
+    const wasLen=s.targetLen;
     const eatR=s.thick+10;
     for(let i=orbs.length-1;i>=0;i--){
       const o=orbs[i];
@@ -866,7 +893,7 @@ function update(dt){
       if(dist2(s.x,s.y,o.x,o.y) < (eatR+o.r)*(eatR+o.r)){
         orbs.splice(i,1);
         s.targetLen+=o.value; s.eaten+=o.value;
-        if(s.isPlayer){ SFX.eat(); if(o.value>=3)SFX.bigEat(); }
+        if(s.isPlayer){ comboBlip(); if(o.value>=3)SFX.bigEat(); }
         particles.push({x:o.x,y:o.y,vx:rand(-60,60),vy:rand(-60,60),life:14,max:14,color:o.color,size:3,grav:0});
         // keep cap
         if(s.targetLen>400)s.targetLen=400;
@@ -877,17 +904,30 @@ function update(dt){
       if(dist2(s.x,s.y,f.x,f.y) < (eatR)*(eatR)){
         foods.splice(i,1);
         s.targetLen+=1; s.eaten+=1;
-        if(s.isPlayer)SFX.eat();
+        if(s.isPlayer)comboBlip();
         if(s.targetLen>400)s.targetLen=400;
       }
     }
+    // 📏 length milestones, Snake.io style!
+    if(s.isPlayer){
+      for(const m of [50,100,200,300,500]){
+        if(wasLen<m&&s.targetLen>=m){ showBanner(`📏 LENGTH ${m}!`, m>=200?'UNSTOPPABLE! Keep eating!':'Keep eating to grow!'); SFX.kill(); break; }
+      }
+    }
   });
+  // pellets gently drift like Snake.io's!
+  for(const f of foods){
+    f.x+=f.vx*dt; f.y+=f.vy*dt;
+    if(f.x<EDGE+10||f.x>WORLD.w-EDGE-10){ f.vx*=-1; f.x=Math.max(EDGE+10,Math.min(WORLD.w-EDGE-10,f.x)); }
+    if(f.y<EDGE+10||f.y>WORLD.h-EDGE-10){ f.vy*=-1; f.y=Math.max(EDGE+10,Math.min(WORLD.h-EDGE-10,f.y)); }
+  }
+  if(eatComboT>0){ eatComboT-=dt; if(eatComboT<=0)eatCombo=0; }
   // keep foods topped up (slither packs the map with pellets!)
   if(foods.length<550 && Math.random()<0.6){
     for(let i=0;i<8;i++){
       const x=rand(EDGE+20,WORLD.w-EDGE-20), y=rand(EDGE+20,WORLD.h-EDGE-20);
       if(insideDanger(x,y,10)||hitsEdge(x,y,20))continue;
-      foods.push({x,y,r:rand(2.5,4.5),color:FOOD_COLORS[(Math.random()*FOOD_COLORS.length)|0],value:1,pulse:0});
+      foods.push({x,y,vx:rand(-8,8),vy:rand(-8,8),r:rand(2.5,4.5),color:FOOD_COLORS[(Math.random()*FOOD_COLORS.length)|0],value:1,pulse:0});
     }
   }
 
@@ -941,7 +981,7 @@ function update(dt){
       blastSnake(s,'snake');
       // reward ping
       floaters.push({x:killer.x,y:killer.y-24,text:`💥 ${killer.name} +1 kill!`,life:90,color:killer.color});
-      if(killer.isPlayer){ SFX.kill(); say(`💥 You smashed ${s.name}! Eat their balls! 🟢`); }
+      if(killer.isPlayer){ SFX.kill(); showBanner(`💥 YOU KILLED ${s.name.toUpperCase()}!`,'Eat their balls to grow! 🟢'); say(`💥 You smashed ${s.name}! Eat their balls! 🟢`); }
       else if(s.isPlayer){ /* death screen handles */ }
       else if(Math.random()<0.3) say(`💥 ${killer.name} smashed ${s.name} into balls!`);
     }
@@ -1026,7 +1066,7 @@ function initThree(){
     renderer.setSize(VW,VH,false);
     const scene=new THREE.Scene();
     scene.background=new THREE.Color(0x8ecfee); // bright daylight sky, Snake.io style!
-    scene.fog=new THREE.Fog(0x8ecfee, 600, 1900);
+    scene.fog=new THREE.Fog(0x8ecfee, 800, 2500);
     const camera=new THREE.PerspectiveCamera(62, VW/VH, 1, 6000);
     camera.position.set(SPAWN.x, 300, SPAWN.y+300);
     scene.add(new THREE.HemisphereLight(0xffffff, 0xcbb27a, 1.15));
@@ -1287,7 +1327,7 @@ function render3D(rdt){
   // third-person chase camera, Snake.io style
   if(me){
     const fx=Math.cos(me.angle), fz=Math.sin(me.angle);
-    const bd=me.boosting?110:100, hh=me.boosting?140:128;
+    const bd=me.boosting?116:106, hh=me.boosting?152:140;
     T.V.set(me.x-fx*bd, hh, me.y-fz*bd);
     const k=1-Math.exp(-rdt*4.5);
     T.camera.position.lerp(T.V, rdt>0?k:1);
